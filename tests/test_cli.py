@@ -125,6 +125,25 @@ def test_retry_appends_new_attempt(tmp_path: Path) -> None:
     assert [p.name for p in files] == ["attempt-001.json", "attempt-002.json"]
 
 
+def test_finally_write_failure_returns_error_exit_2(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    # "verdicts" exists as a regular file, so allocate_attempt's mkdir(...)
+    # raises and the finally block itself fails.
+    (root / "verdicts").write_text("not a directory")
+    with (
+        patch(
+            "research_bench.cli.run_link_resolve",
+            return_value=_stage("link-resolve", VerdictKind.PASS),
+        ),
+        patch(
+            "research_bench.cli.run_critic",
+            return_value=(_stage("critic", VerdictKind.PASS), "raw"),
+        ),
+    ):
+        code = run_verify(root, root / "briefs/topic-x", root / "bench.config.yaml")
+    assert code == 2
+
+
 def test_keyboard_interrupt_still_writes_error_verdict(tmp_path: Path) -> None:
     root = _project(tmp_path)
     with (

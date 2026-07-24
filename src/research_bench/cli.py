@@ -30,6 +30,7 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
     manifest: CriteriaManifest | None = None
     config: CriticConfig | None = None
     verdict: VerdictKind = VerdictKind.ERROR
+    write_failed = False
 
     try:
         config = load_critic_config(config_path)
@@ -59,25 +60,31 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
         )
         verdict = VerdictKind.ERROR
     finally:
-        artifact_rel = manifest.artifact if manifest else ""
-        artifact_sha = sha256_file(root / artifact_rel) if artifact_rel else ""
-        verdict_dir = root / "verdicts" / topic / (artifact_sha or "no-artifact")
-        attempt, reserved = allocate_attempt(verdict_dir)
-        report = VerdictReport(
-            verdict=verdict,
-            stages=stages,
-            artifact=artifact_rel,
-            artifact_sha256=artifact_sha,
-            criteria_sha256=sha256_file(brief_dir / "criteria.yaml"),
-            critic_version=config.critic_version if config else "unknown",
-            model=config.model if config else "unknown",
-            prompt_version=config.prompt_version if config else "unknown",
-            attempt=attempt,
-            timestamp=datetime.now(UTC).isoformat(),
-        )
-        write_report(report, reserved, raw_output)
-        print(f"bench-verify: {verdict} -> {reserved}", file=sys.stderr)
+        try:
+            artifact_rel = manifest.artifact if manifest else ""
+            artifact_sha = sha256_file(root / artifact_rel) if artifact_rel else ""
+            verdict_dir = root / "verdicts" / topic / (artifact_sha or "no-artifact")
+            attempt, reserved = allocate_attempt(verdict_dir)
+            report = VerdictReport(
+                verdict=verdict,
+                stages=stages,
+                artifact=artifact_rel,
+                artifact_sha256=artifact_sha,
+                criteria_sha256=sha256_file(brief_dir / "criteria.yaml"),
+                critic_version=config.critic_version if config else "unknown",
+                model=config.model if config else "unknown",
+                prompt_version=config.prompt_version if config else "unknown",
+                attempt=attempt,
+                timestamp=datetime.now(UTC).isoformat(),
+            )
+            write_report(report, reserved, raw_output)
+            print(f"bench-verify: {verdict} -> {reserved}", file=sys.stderr)
+        except Exception as exc:  # writing the verdict itself failed
+            write_failed = True
+            print(f"bench-verify: failed to write verdict: {exc}", file=sys.stderr)
 
+    if write_failed:
+        return EXIT_CODES[VerdictKind.ERROR]
     return EXIT_CODES[verdict]
 
 
