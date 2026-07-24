@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class VerdictKind(StrEnum):
+    """Verdict outcome: pass, fail, or error."""
+
     PASS = "PASS"
     FAIL = "FAIL"
     ERROR = "ERROR"
@@ -27,6 +29,8 @@ Stage = Literal["deterministic", "link-resolve", "critic"]
 
 
 class Finding(BaseModel):
+    """A single finding from the critic referencing a criterion."""
+
     model_config = ConfigDict(extra="forbid")
 
     criterion_id: str
@@ -35,6 +39,8 @@ class Finding(BaseModel):
 
 
 class StageResult(BaseModel):
+    """Result and findings from one critic stage."""
+
     model_config = ConfigDict(extra="forbid")
 
     stage: Stage
@@ -81,6 +87,7 @@ def allocate_attempt(verdict_dir: Path) -> tuple[int, Path]:
         path = verdict_dir / f"attempt-{n:03d}.json"
         try:
             path.open("x").close()
+            # Reserved slot is an empty file; intentionally skipped if never written.
             return n, path
         except FileExistsError:
             n += 1
@@ -89,13 +96,17 @@ def allocate_attempt(verdict_dir: Path) -> tuple[int, Path]:
 def write_report(
     report: VerdictReport, reserved_json: Path, raw_output: str
 ) -> None:
-    """Atomically write JSON (canonical), MD render and raw critic output."""
+    """Write report files in append-safe order: raw, md, then atomic JSON last.
+
+    The canonical JSON is written last via os.replace, so its presence
+    guarantees the complete attempt (md + raw) has landed.
+    """
+    stem = reserved_json.stem  # attempt-NNN
+    (reserved_json.parent / f"{stem}.raw.txt").write_text(raw_output)
+    (reserved_json.parent / f"{stem}.md").write_text(render_md(report))
     tmp = reserved_json.with_name(reserved_json.name + ".tmp")
     tmp.write_text(report.model_dump_json(indent=2) + "\n")
     os.replace(tmp, reserved_json)
-    stem = reserved_json.stem  # attempt-NNN
-    (reserved_json.parent / f"{stem}.md").write_text(render_md(report))
-    (reserved_json.parent / f"{stem}.raw.txt").write_text(raw_output)
 
 
 def render_md(report: VerdictReport) -> str:
