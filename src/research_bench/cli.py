@@ -66,7 +66,15 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
     finally:
         try:
             artifact_rel = manifest.artifact if manifest else ""
-            artifact_sha = sha256_file(root / artifact_rel) if artifact_rel else ""
+            artifact_sha = ""
+            if (
+                artifact_rel
+                and not Path(artifact_rel).is_absolute()
+                and (root / artifact_rel)
+                .resolve()
+                .is_relative_to((root / "reports").resolve())
+            ):
+                artifact_sha = sha256_file(root / artifact_rel)
             verdict_dir = root / "verdicts" / topic / (artifact_sha or "no-artifact")
             attempt, reserved = allocate_attempt(verdict_dir)
             report = VerdictReport(

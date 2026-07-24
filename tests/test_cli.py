@@ -144,6 +144,27 @@ def test_finally_write_failure_returns_error_exit_2(tmp_path: Path) -> None:
     assert code == 2
 
 
+def test_out_of_tree_artifact_is_not_hashed(tmp_path: Path) -> None:
+    # manifest.artifact points outside reports/ (deterministic stage already
+    # FAILs it), but the finally block must not use it as a content oracle
+    # by hashing whatever file happens to sit at that out-of-tree path.
+    root = _project(tmp_path, report=None)
+    (root / "briefs/topic-x/criteria.yaml").write_text(
+        "schema_version: 1\n"
+        "artifact: secret.txt\n"
+        "criteria:\n"
+        "  - id: synthesis\n"
+        "    description: d\n"
+    )
+    (root / "secret.txt").write_text("outside reports/, must not be hashed")
+    code = run_verify(root, root / "briefs/topic-x", root / "bench.config.yaml")
+    assert code == 1  # deterministic FAIL: det/artifact-path
+    [report_path] = _verdict_files(root)
+    data = json.loads(report_path.read_text())
+    assert data["artifact_sha256"] == ""
+    assert report_path.parent.name == "no-artifact"
+
+
 def test_critic_exception_reports_critic_stage(tmp_path: Path) -> None:
     root = _project(tmp_path)
     with (
