@@ -189,3 +189,16 @@ def test_valid_json_wrong_shape_is_error(tmp_path: Path) -> None:
         config, tmp_path, _manifest(), "text", runner=_runner_returning("[]")
     )
     assert result.verdict == VerdictKind.ERROR
+
+
+def test_fenced_json_result_is_parsed(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    payload = {
+        "criteria": [{"criterion_id": "synthesis", "passed": True, "findings": []}]
+    }
+    fenced = "```json\n" + json.dumps(payload) + "\n```"
+    envelope = json.dumps({"result": fenced, "total_cost_usd": 0.1})
+    result, _ = run_critic(
+        config, tmp_path, _manifest(), "text", runner=_runner_returning(envelope)
+    )
+    assert result.verdict == VerdictKind.PASS
