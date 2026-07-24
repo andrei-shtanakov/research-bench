@@ -29,6 +29,7 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
     raw_output = ""
     manifest: CriteriaManifest | None = None
     config: CriticConfig | None = None
+    verdict: VerdictKind = VerdictKind.ERROR
 
     try:
         config = load_critic_config(config_path)

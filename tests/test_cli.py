@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from research_bench.cli import run_verify
 from research_bench.verdict import Stage, StageResult, VerdictKind
 
@@ -121,3 +123,17 @@ def test_retry_appends_new_attempt(tmp_path: Path) -> None:
         run_verify(root, root / "briefs/topic-x", root / "bench.config.yaml")
     files = _verdict_files(root)
     assert [p.name for p in files] == ["attempt-001.json", "attempt-002.json"]
+
+
+def test_keyboard_interrupt_still_writes_error_verdict(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    with (
+        patch(
+            "research_bench.cli.run_deterministic",
+            side_effect=KeyboardInterrupt,
+        ),
+        pytest.raises(KeyboardInterrupt),
+    ):
+        run_verify(root, root / "briefs/topic-x", root / "bench.config.yaml")
+    [report_path] = _verdict_files(root)
+    assert json.loads(report_path.read_text())["verdict"] == "ERROR"
