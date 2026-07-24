@@ -1,6 +1,6 @@
 project: research-bench-pilot
 repo_url: https://github.com/andrei-shtanakov/research-bench
-repo_path: /Users/Andrei_Shtanakov/labs/all_ai_orchestrators/research-bench
+repo_path: ~/labs/all_ai_orchestrators/research-bench
 workspace_base: /tmp/maestro-ws/research-bench
 max_concurrent: 1
 base_branch: master

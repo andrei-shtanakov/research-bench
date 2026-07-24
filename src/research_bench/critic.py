@@ -8,7 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .criteria import CriteriaManifest
 from .verdict import Finding, StageResult, VerdictKind
@@ -33,7 +33,7 @@ class _CriterionVerdict(BaseModel):
 
     criterion_id: str
     passed: bool
-    findings: list[Finding] = []
+    findings: list[Finding] = Field(default_factory=list)
 
 
 class _CriticOutput(BaseModel):

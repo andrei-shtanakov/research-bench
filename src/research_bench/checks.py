@@ -89,7 +89,7 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                 Finding(
                     criterion_id="det/secret",
                     severity="major",
-                    evidence=f"possible secret: `{m.group(0)[:24]}…`",
+                    evidence=f"possible secret: `{m.group(0)[:4]}…` (masked)",
                 )
             )
 

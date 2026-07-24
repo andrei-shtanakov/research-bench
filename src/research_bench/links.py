@@ -18,11 +18,15 @@ def run_link_resolve(
     try:
         for url in urls:
             try:
-                response = own_client.head(url)
+                response = own_client.head(
+                    url, timeout=timeout_seconds, follow_redirects=True
+                )
                 if response.status_code >= 400:
                     # Real hosts often reject HEAD (403/404/405/501) while
                     # GET works fine; only the GET verdict is authoritative.
-                    response = own_client.get(url)
+                    response = own_client.get(
+                        url, timeout=timeout_seconds, follow_redirects=True
+                    )
             except httpx.HTTPError as exc:
                 return StageResult(
                     stage="link-resolve",

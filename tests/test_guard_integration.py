@@ -30,7 +30,7 @@ def test_failing_guard_means_zero_agent_invocations(tmp_path: Path) -> None:
     invocations = tmp_path / "invocations.log"
     fake_agent = tmp_path / "fake_agent.sh"
     fake_agent.write_text(
-        f"#!/bin/sh\necho invoked >> {invocations}\necho TASK_COMPLETE\n"
+        f'#!/bin/sh\necho invoked >> "{invocations}"\necho TASK_COMPLETE\n'
     )
     fake_agent.chmod(0o755)
 

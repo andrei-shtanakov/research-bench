@@ -39,7 +39,7 @@ class Finding(BaseModel):
 
 
 class StageResult(BaseModel):
-    """Result and findings from one critic stage."""
+    """Result and findings from one verification stage."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -71,7 +71,8 @@ def sha256_file(path: Path) -> str:
     """Hex sha256 of a file, or "" when the file does not exist."""
     if not path.is_file():
         return ""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    with path.open("rb") as f:
+        return hashlib.file_digest(f, "sha256").hexdigest()
 
 
 def allocate_attempt(verdict_dir: Path) -> tuple[int, Path]:
