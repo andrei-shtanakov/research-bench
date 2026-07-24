@@ -49,9 +49,16 @@ def load_critic_config(path: Path) -> CriticConfig:
 
 
 def build_prompt(template: str, manifest: CriteriaManifest, artifact_text: str) -> str:
-    """Fill the prompt template; the artifact is wrapped as data."""
+    """Fill the prompt template; the artifact is wrapped as data.
+
+    Placeholders (``{criteria_block}`` and ``{artifact}``) are replaced
+    literally via ``str.replace``, not ``str.format``, so any other braces
+    in the template or artifact text (e.g. JSON examples) are left intact.
+    """
     criteria_block = "\n".join(f"- {c.id}: {c.description}" for c in manifest.criteria)
-    return template.format(criteria_block=criteria_block, artifact=artifact_text)
+    return template.replace("{criteria_block}", criteria_block).replace(
+        "{artifact}", artifact_text
+    )
 
 
 def _error(detail: str) -> StageResult:
@@ -92,6 +99,8 @@ def run_critic(
 
     try:
         envelope = json.loads(raw)
+        if not isinstance(envelope, dict):
+            raise TypeError("envelope is not an object")
         cost = float(envelope.get("total_cost_usd", 0.0))
         output = _CriticOutput.model_validate(json.loads(envelope["result"]))
     except (json.JSONDecodeError, KeyError, TypeError, ValidationError) as exc:
@@ -102,7 +111,7 @@ def run_critic(
 
     known_ids = {c.id for c in manifest.criteria}
     seen_ids = {c.criterion_id for c in output.criteria}
-    if not seen_ids <= known_ids or seen_ids != known_ids:
+    if seen_ids != known_ids:
         return _error(
             f"criterion ids mismatch: got {sorted(seen_ids)}, "
             f"expected {sorted(known_ids)}"

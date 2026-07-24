@@ -159,3 +159,19 @@ def test_invalid_json_is_error(tmp_path: Path) -> None:
         config, tmp_path, _manifest(), "text", runner=_runner_returning("not json")
     )
     assert result.verdict == VerdictKind.ERROR
+
+
+def test_real_committed_template_builds_prompt() -> None:
+    template = Path("prompts/critic-v1.md").read_text()
+    prompt = build_prompt(template, _manifest(), "text with {braces} inside")
+    assert "<artifact>" in prompt
+    assert "text with {braces} inside" in prompt
+    assert "synthesis" in prompt
+
+
+def test_valid_json_wrong_shape_is_error(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    result, _ = run_critic(
+        config, tmp_path, _manifest(), "text", runner=_runner_returning("[]")
+    )
+    assert result.verdict == VerdictKind.ERROR
