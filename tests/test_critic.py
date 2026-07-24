@@ -161,6 +161,21 @@ def test_invalid_json_is_error(tmp_path: Path) -> None:
     assert result.verdict == VerdictKind.ERROR
 
 
+def test_non_numeric_cost_is_error_with_raw_preserved(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    payload = {
+        "criteria": [{"criterion_id": "synthesis", "passed": True, "findings": []}]
+    }
+    stdout = json.dumps(
+        {"result": json.dumps(payload), "total_cost_usd": "n/a"}
+    )
+    result, raw = run_critic(
+        config, tmp_path, _manifest(), "text", runner=_runner_returning(stdout)
+    )
+    assert result.verdict == VerdictKind.ERROR
+    assert raw  # raw stdout preserved for reproducibility
+
+
 def test_real_committed_template_builds_prompt() -> None:
     template = Path("prompts/critic-v1.md").read_text()
     prompt = build_prompt(template, _manifest(), "text with {braces} inside")

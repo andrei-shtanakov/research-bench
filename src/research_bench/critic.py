@@ -103,7 +103,13 @@ def run_critic(
             raise TypeError("envelope is not an object")
         cost = float(envelope.get("total_cost_usd", 0.0))
         output = _CriticOutput.model_validate(json.loads(envelope["result"]))
-    except (json.JSONDecodeError, KeyError, TypeError, ValidationError) as exc:
+    except (
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+        ValidationError,
+    ) as exc:
         return _error(f"invalid critic output: {exc}"), raw
 
     if cost > config.cost_cap_usd:
