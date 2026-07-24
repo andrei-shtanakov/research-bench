@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+*.egg-info/
+spec/.executor-*
+spec/maestro-*
+spec/.maestro-*
+.pytest_cache/
