@@ -1,0 +1,31 @@
+project: research-bench-pilot
+repo_url: https://github.com/andrei-shtanakov/research-bench
+repo_path: /Users/Andrei_Shtanakov/labs/all_ai_orchestrators/research-bench
+workspace_base: /tmp/maestro-ws/research-bench
+max_concurrent: 1
+base_branch: master
+branch_prefix: "research/"
+auto_pr: true
+
+spec_runner:
+  max_retries: 2
+  task_timeout_minutes: 45
+  auto_commit: true
+  create_git_branch: true
+  run_tests_on_done: true
+  test_command: "uv run bench-verify --brief briefs/sqlite-wal"
+  run_lint_on_done: false
+
+workstreams:
+  - id: sqlite-wal-report
+    title: "Research report: SQLite WAL trade-offs"
+    description: |
+      Produce reports/sqlite-wal/result.md following briefs/sqlite-wal/brief.md.
+      Acceptance criteria: briefs/sqlite-wal/criteria.yaml (read-only for you).
+      IMPORTANT: plan this as EXACTLY ONE executable task that performs
+      source collection, synthesis and the final report in a single unit.
+      Do not split into multiple tasks.
+    scope:
+      - "reports/sqlite-wal/**"
+      - "verdicts/sqlite-wal/**"
+    depends_on: []
