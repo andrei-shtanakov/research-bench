@@ -13,7 +13,7 @@ from pathlib import Path
 
 from spec_runner.task import parse_tasks
 
-EXECUTABLE_STATUSES = {"todo", "in_progress"}
+EXECUTABLE_STATUSES = {"todo", "in_progress", "blocked"}
 SPEC_CANDIDATES = ("spec/maestro-tasks.md", "spec/tasks.md")
 
 

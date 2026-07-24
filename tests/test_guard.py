@@ -37,6 +37,18 @@ DONE_ONLY = """\
 Nothing executable here.
 """
 
+TODO_PLUS_BLOCKED = (
+    ONE_TASK
+    + """
+### TASK-002: Blocked follow-up
+🟡 P2 | ⏸️ BLOCKED | Est: 1h
+
+**Description:**
+Blocked task that spec-runner will flip to todo once deps complete;
+this is still a multi-task plan and must trip the guard.
+"""
+)
+
 
 def _project(
     tmp_path: Path, tasks_md: str | None, name: str = "maestro-tasks.md"
@@ -59,6 +71,12 @@ def test_two_tasks_exit_1(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
 
 def test_zero_executable_tasks_exit_1(tmp_path: Path) -> None:
     assert run_guard(_project(tmp_path, DONE_ONLY)) == 1
+
+
+def test_todo_plus_blocked_exit_1(tmp_path: Path) -> None:
+    # BLOCKED counts as executable: spec-runner auto-promotes blocked -> todo
+    # once dependencies complete, so TODO+BLOCKED is a multi-task plan.
+    assert run_guard(_project(tmp_path, TODO_PLUS_BLOCKED)) == 1
 
 
 def test_missing_spec_file_exit_2(tmp_path: Path) -> None:
