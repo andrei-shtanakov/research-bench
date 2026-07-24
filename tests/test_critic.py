@@ -175,7 +175,8 @@ def test_non_numeric_cost_is_error_with_raw_preserved(tmp_path: Path) -> None:
 
 
 def test_real_committed_template_builds_prompt() -> None:
-    template = Path("prompts/critic-v1.md").read_text()
+    template_path = Path(__file__).parent.parent / "prompts" / "critic-v1.md"
+    template = template_path.read_text()
     prompt = build_prompt(template, _manifest(), "text with {braces} inside")
     assert "<artifact>" in prompt
     assert "text with {braces} inside" in prompt
