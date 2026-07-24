@@ -15,7 +15,7 @@ bench-verify = "research_bench.cli:main"
 single-task-guard = "research_bench.guard:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.4"]
+dev = ["pytest>=8.0", "ruff>=0.4", "pyrefly>=0.16"]
 
 [build-system]
 requires = ["hatchling"]
@@ -32,3 +32,9 @@ select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
 
 [tool.pytest.ini_options]
 markers = ["slow: integration tests that spawn spec-runner"]
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
