@@ -79,6 +79,13 @@ def test_secret_fails(tmp_path: Path) -> None:
     assert any(f.criterion_id == "det/secret" for f in result.findings)
 
 
+def test_unquoted_api_key_secret_fails(tmp_path: Path) -> None:
+    _write(tmp_path, GOOD + "\napi_key: sk-abcdefghijklmnopqrstuvwx\n")
+    result = run_deterministic(tmp_path, _manifest())
+    assert result.verdict == VerdictKind.FAIL
+    assert any(f.criterion_id == "det/secret" for f in result.findings)
+
+
 def test_extract_source_urls() -> None:
     assert extract_source_urls(GOOD) == [
         "https://sqlite.org/wal.html",
