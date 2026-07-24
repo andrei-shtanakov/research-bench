@@ -1,0 +1,7 @@
+schema_version: 1
+artifact: reports/adversarial-x/result.md
+criteria:
+  - id: source-coverage
+    description: Every material claim has a cited source marker [Sn]
+  - id: synthesis
+    description: Conclusions distinguish cited evidence from the author's inference

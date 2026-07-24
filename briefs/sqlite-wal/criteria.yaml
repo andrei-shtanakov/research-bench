@@ -1,0 +1,11 @@
+schema_version: 1
+artifact: reports/sqlite-wal/result.md
+criteria:
+  - id: source-coverage
+    description: Every material claim has a cited source marker [Sn]
+  - id: synthesis
+    description: Conclusions distinguish cited evidence from the author's inference
+  - id: structure
+    description: >-
+      Report covers WAL vs rollback journal, concurrency, crash-safety,
+      checkpointing costs, and an explicit recommendation section

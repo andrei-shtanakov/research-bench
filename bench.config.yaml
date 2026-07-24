@@ -1,0 +1,9 @@
+# Pinned critic identity. Upgrading any value below is an explicit PR.
+critic:
+  claude_command: claude
+  model: claude-sonnet-5
+  prompt_path: prompts/critic-v1.md
+  prompt_version: v1
+  cost_cap_usd: 1.0
+  timeout_seconds: 300
+  critic_version: "0.1.0"
