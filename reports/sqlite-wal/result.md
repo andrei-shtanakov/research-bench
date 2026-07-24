@@ -1,0 +1,35 @@
+# SQLite WAL mode trade-offs for an embedded orchestrator
+
+## Introduction
+
+An embedded orchestrator that keeps its state in SQLite typically has one process writing job state while many readers poll for status. The choice between the default rollback journal and write-ahead logging (WAL) determines how those readers and the writer interact, how commits become durable, and what maintenance the application must budget for. This report summarizes what WAL changes, its concurrency and crash-safety properties, and its checkpointing costs, and closes with a recommendation for the single-writer/many-readers case.
+
+## What WAL changes vs. the rollback journal
+
+In rollback-journal mode, before any page of the database is modified, "the process writes the original content of that page into the rollback journal," and the changes are then written directly into the database file [S3]. WAL inverts this write path: the original content is preserved in the database file and changes are appended to a separate `-wal` file, with a commit performed by appending a commit record to that log [S1]. Two auxiliary files appear next to the database: the `-wal` file holding appended transactions and a memory-mapped `-shm` shared-memory index that lets readers locate pages in the WAL quickly [S1]. The documentation reports that WAL is "significantly faster in most scenarios," with more sequential disk I/O and many fewer fsync() operations, but that read performance degrades in proportion to WAL size, that read-heavy workloads may run 1–2% slower, and that very large transactions (hundreds of megabytes) work poorly [S1]. Unlike other journal modes, WAL is persistent: once set, it stays in effect across connections and across closing and reopening the database [S2].
+
+## Concurrency properties
+
+In rollback mode, a writer must escalate to an EXCLUSIVE lock to flush its changes to the database file, and no other lock may coexist with it, so writers block readers and readers block writers [S3]. "Before any changes are made to the database file on disk, all readers must be (temporarily) expelled" [S4]. WAL removes this contention: readers and the writer proceed at the same time, but there can be only one writer at a time because all changes append to a single WAL file [S1]. Each reader records an "end mark" — the last valid commit record in the WAL at the start of its transaction — and continues to see an unchanging snapshot of the database as of that moment, regardless of concurrent commits [S1][S4]. Writes are serialized, which is how SQLite preserves serializable isolation [S4]. For an orchestrator whose single writer already serializes its own commits, the single-writer constraint costs nothing; this is my inference from the workload shape rather than a documented claim.
+
+## Crash safety and durability
+
+In rollback mode, a crash mid-commit leaves a "hot journal"; the next process to open the database rolls the changes back before normal access resumes [S3]. In WAL mode a transaction commits by appending a commit record to the log [S1]; from this I infer that after a crash, transactions whose commit record reached stable storage are preserved and later transferred into the database, while trailing incomplete frames are ignored — recovery happens automatically on the next open. Durability depends on `PRAGMA synchronous`. With `synchronous=FULL`, the WAL is synced on every commit and transactions are fully durable [S2]. With `synchronous=NORMAL`, the checkpoint is the only operation that issues a sync, so a transaction committed just before power loss "might roll back," but the documentation states WAL remains safe from corruption at this level and calls NORMAL "the best balance between performance and safety for most applications running in WAL mode" [S1][S2].
+
+## Checkpointing: mechanics, cost, and starvation
+
+A checkpoint transfers accumulated WAL content back into the main database file; by default SQLite runs one automatically when a commit pushes the WAL to 1000 or more pages [S1][S2]. Checkpoints carry the sync cost under `synchronous=NORMAL` [S1], and because every reader must be able to keep using its snapshot, "the checkpoint must stop when it reaches a page in the WAL that is past the end mark of any current reader" [S1]. If overlapping readers keep at least one read transaction open at all times, "no checkpoints will be able to complete and hence the WAL file will grow without bound" [S1] — and a growing WAL directly worsens read latency, since checking the WAL takes time proportional to its size [S1]. The controls: `PRAGMA wal_autocheckpoint` tunes or disables the automatic threshold [S2], and explicit checkpoints via `PRAGMA wal_checkpoint` or `sqlite3_wal_checkpoint_v2()` offer four modes — PASSIVE (checkpoint what it can without waiting), FULL (wait for the writer, then checkpoint everything), RESTART (additionally wait until readers leave the log so the next writer restarts it), and TRUNCATE (RESTART plus truncating the WAL to zero bytes) [S2][S5]. The documentation states that FULL, RESTART, and TRUNCATE block new writers while running but leave readers unimpeded [S5]; from this I infer that an orchestrator should keep reader transactions short and, if the WAL still trends upward, schedule a RESTART or TRUNCATE checkpoint in a known-quiet window rather than letting the writer stall unpredictably.
+
+## Recommendation
+
+For a single-writer/many-readers embedded orchestrator, enable WAL. The cited evidence: readers no longer block the writer or get expelled by commits [S1][S4], commits are cheaper (fewer syncs, more sequential I/O) [S1], and the one structural limit — a single writer at a time [S1] — is already satisfied by the workload. From this I infer the workload is close to WAL's best case. Pair it with `synchronous=NORMAL` unless a job acknowledged to an external system must survive power loss, in which case use FULL [S2].
+
+Do not enable WAL when the database lives on a network filesystem or is reached from more than one host: WAL requires all processes on the same machine because the wal-index (`-shm`) is shared memory [S1]. Multiple local processes are fine, but they must coordinate through the `-shm` file, and SQLite versions before 3.22.0 required write privileges even for read-only access [S1]; databases shipped on read-only media therefore rule WAL out [S1]. Avoid WAL too when transactions run to hundreds of megabytes, where it performs poorly [S1]. Remember that WAL persists in the database file itself, so any other tool that later opens the file inherits the mode [S2]. Finally, guard against checkpoint starvation: keep read transactions short or add a periodic TRUNCATE checkpoint [S1][S5].
+
+## Sources
+
+- [S1] https://sqlite.org/wal.html
+- [S2] https://sqlite.org/pragma.html
+- [S3] https://sqlite.org/lockingv3.html
+- [S4] https://sqlite.org/isolation.html
+- [S5] https://sqlite.org/c3ref/wal_checkpoint_v2.html
