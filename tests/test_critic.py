@@ -166,9 +166,7 @@ def test_non_numeric_cost_is_error_with_raw_preserved(tmp_path: Path) -> None:
     payload = {
         "criteria": [{"criterion_id": "synthesis", "passed": True, "findings": []}]
     }
-    stdout = json.dumps(
-        {"result": json.dumps(payload), "total_cost_usd": "n/a"}
-    )
+    stdout = json.dumps({"result": json.dumps(payload), "total_cost_usd": "n/a"})
     result, raw = run_critic(
         config, tmp_path, _manifest(), "text", runner=_runner_returning(stdout)
     )

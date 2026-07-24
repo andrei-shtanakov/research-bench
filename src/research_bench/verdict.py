@@ -93,9 +93,7 @@ def allocate_attempt(verdict_dir: Path) -> tuple[int, Path]:
             n += 1
 
 
-def write_report(
-    report: VerdictReport, reserved_json: Path, raw_output: str
-) -> None:
+def write_report(report: VerdictReport, reserved_json: Path, raw_output: str) -> None:
     """Write report files in append-safe order: raw, md, then atomic JSON last.
 
     The canonical JSON is written last via os.replace, so its presence
@@ -127,8 +125,6 @@ def render_md(report: VerdictReport) -> str:
         if stage.detail:
             lines.append(f"{stage.detail}")
         for f in stage.findings:
-            lines.append(
-                f"- **{f.severity}** `{f.criterion_id}`: {f.evidence}"
-            )
+            lines.append(f"- **{f.severity}** `{f.criterion_id}`: {f.evidence}")
         lines.append("")
     return "\n".join(lines)
