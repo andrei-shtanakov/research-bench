@@ -15,6 +15,14 @@ spec_runner:
   run_tests_on_done: true
   test_command: "uv run bench-verify --brief briefs/sqlite-wal"
   run_lint_on_done: false
+  # Research domain: the code-review stage treats the report as code and
+  # rewrites bench sources out of scope (golden run 1 evidence). The scope
+  # gate stays the real protection; the reviewer is simply wrong-domain here.
+  extra_executor_config:
+    executor:
+      hooks:
+        post_done:
+          run_review: false
 
 workstreams:
   - id: sqlite-wal-report
@@ -25,6 +33,10 @@ workstreams:
       IMPORTANT: plan this as EXACTLY ONE executable task that performs
       source collection, synthesis and the final report in a single unit.
       Do not split into multiple tasks.
+      You are writing a research REPORT, not code. Never modify src/**,
+      tests/**, pyproject.toml, bench.config.yaml, prompts/**, briefs/**
+      or spec/plugins/** — verification tooling is off-limits. Write only
+      reports/sqlite-wal/result.md.
     scope:
       - "reports/sqlite-wal/**"
       - "verdicts/sqlite-wal/**"
