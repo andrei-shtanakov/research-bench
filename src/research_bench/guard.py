@@ -32,7 +32,7 @@ def run_guard(project_root: Path) -> int:
         return 2
     try:
         tasks = parse_tasks(spec)
-    except Exception as exc:
+    except (Exception, SystemExit) as exc:
         print(f"single-task-guard: cannot parse {spec}: {exc}", file=sys.stderr)
         return 2
     count = sum(1 for t in tasks if t.status in EXECUTABLE_STATUSES)

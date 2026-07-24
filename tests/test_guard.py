@@ -74,3 +74,15 @@ def test_missing_env_exit_2(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.delenv("SR_PROJECT_ROOT", raising=False)
     assert main() == 2
+
+
+def test_parse_tasks_systemexit_is_infra_exit_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import research_bench.guard as guard_mod
+
+    def fake_parse_tasks(path: Path) -> list:
+        raise SystemExit(1)
+
+    monkeypatch.setattr(guard_mod, "parse_tasks", fake_parse_tasks)
+    assert run_guard(_project(tmp_path, ONE_TASK)) == 2
