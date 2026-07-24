@@ -25,13 +25,14 @@ spec_runner:
           run_review: false
 
 workstreams:
-  - id: sqlite-wal-report
-    title: "Research report: SQLite WAL trade-offs"
+  - id: sqlite-wal-report-v2
+    title: "Research report: SQLite WAL trade-offs (v2: independent benchmark)"
     description: |
-      Produce reports/sqlite-wal/result.md following briefs/sqlite-wal/brief.md.
-      Acceptance criteria: briefs/sqlite-wal/criteria.yaml (read-only for you).
-      IMPORTANT: plan this as EXACTLY ONE executable task that performs
-      source collection, synthesis and the final report in a single unit.
+      Update the EXISTING reports/sqlite-wal/result.md so it satisfies ALL
+      acceptance criteria in briefs/sqlite-wal/criteria.yaml (read-only for
+      you), including the new independent-benchmark criterion. Keep the
+      existing structure and citations; add what is missing.
+      IMPORTANT: plan this as EXACTLY ONE executable task.
       Do not split into multiple tasks.
       You are writing a research REPORT, not code. Never modify src/**,
       tests/**, pyproject.toml, bench.config.yaml, prompts/**, briefs/**
