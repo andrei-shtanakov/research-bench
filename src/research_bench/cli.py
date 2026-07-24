@@ -13,6 +13,7 @@ from .critic import CriticConfig, load_critic_config, run_critic
 from .links import run_link_resolve
 from .verdict import (
     EXIT_CODES,
+    Stage,
     StageResult,
     VerdictKind,
     VerdictReport,
@@ -31,6 +32,7 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
     config: CriticConfig | None = None
     verdict: VerdictKind = VerdictKind.ERROR
     write_failed = False
+    current_stage: Stage = "deterministic"
 
     try:
         config = load_critic_config(config_path)
@@ -39,9 +41,11 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
 
         stages.append(run_deterministic(root, manifest))
         if stages[-1].verdict is VerdictKind.PASS:
+            current_stage = "link-resolve"
             urls = extract_source_urls(artifact.read_text())
             stages.append(run_link_resolve(urls))
         if stages[-1].verdict is VerdictKind.PASS:
+            current_stage = "critic"
             critic_result, raw_output = run_critic(
                 config, root, manifest, artifact.read_text()
             )
@@ -53,7 +57,7 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
     except Exception as exc:  # manifest/IO problems are infra, not content
         stages.append(
             StageResult(
-                stage="deterministic",
+                stage=current_stage,
                 verdict=VerdictKind.ERROR,
                 detail=f"unhandled failure: {exc}",
             )

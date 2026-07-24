@@ -144,6 +144,26 @@ def test_finally_write_failure_returns_error_exit_2(tmp_path: Path) -> None:
     assert code == 2
 
 
+def test_critic_exception_reports_critic_stage(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    with (
+        patch(
+            "research_bench.cli.run_link_resolve",
+            return_value=_stage("link-resolve", VerdictKind.PASS),
+        ),
+        patch(
+            "research_bench.cli.run_critic",
+            side_effect=RuntimeError("boom"),
+        ),
+    ):
+        code = run_verify(root, root / "briefs/topic-x", root / "bench.config.yaml")
+    assert code == 2
+    [report_path] = _verdict_files(root)
+    data = json.loads(report_path.read_text())
+    assert data["verdict"] == "ERROR"
+    assert data["stages"][-1]["stage"] == "critic"
+
+
 def test_keyboard_interrupt_still_writes_error_verdict(tmp_path: Path) -> None:
     root = _project(tmp_path)
     with (
