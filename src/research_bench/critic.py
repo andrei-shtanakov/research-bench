@@ -112,9 +112,10 @@ def run_critic(
         if not isinstance(envelope, dict):
             raise TypeError("envelope is not an object")
         cost = float(envelope.get("total_cost_usd", 0.0))
-        output = _CriticOutput.model_validate(
-            json.loads(_strip_fences(envelope["result"]))
-        )
+        result_text = envelope["result"]
+        if not isinstance(result_text, str):
+            raise TypeError("result is not a string")
+        output = _CriticOutput.model_validate(json.loads(_strip_fences(result_text)))
     except (
         json.JSONDecodeError,
         KeyError,

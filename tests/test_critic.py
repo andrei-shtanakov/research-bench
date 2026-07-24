@@ -202,3 +202,12 @@ def test_fenced_json_result_is_parsed(tmp_path: Path) -> None:
         config, tmp_path, _manifest(), "text", runner=_runner_returning(envelope)
     )
     assert result.verdict == VerdictKind.PASS
+
+
+def test_non_string_result_is_error(tmp_path: Path) -> None:
+    config = _setup(tmp_path)
+    envelope = json.dumps({"result": None, "total_cost_usd": 0.1})
+    result, _ = run_critic(
+        config, tmp_path, _manifest(), "text", runner=_runner_returning(envelope)
+    )
+    assert result.verdict == VerdictKind.ERROR
