@@ -9,7 +9,7 @@ from .criteria import CriteriaManifest
 from .verdict import Finding, StageResult, VerdictKind
 
 CITATION = re.compile(r"\[S(\d+)\]")
-SOURCE_LINE = re.compile(r"^-\s*\[S(\d+)\]\s*(\S+)", re.MULTILINE)
+SOURCE_LINE = re.compile(r"^\s*-\s*\[S(\d+)\]\s*(\S+)", re.MULTILINE)
 URL = re.compile(r"https?://\S+")
 SECRETS = [
     re.compile(r"AKIA[0-9A-Z]{16}"),
@@ -32,9 +32,12 @@ def _split_sources(text: str) -> tuple[str, str]:
 def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
     """Run all deterministic checks; FAIL on the first class of violations."""
     findings: list[Finding] = []
-    artifact = root / manifest.artifact
-
-    if not str(Path(manifest.artifact)).startswith("reports/"):
+    reports_root = (root / "reports").resolve()
+    resolved = (root / manifest.artifact).resolve()
+    contained = not Path(manifest.artifact).is_absolute() and resolved.is_relative_to(
+        reports_root
+    )
+    if not contained:
         findings.append(
             Finding(
                 criterion_id="det/artifact-path",
@@ -42,6 +45,11 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                 evidence=f"artifact `{manifest.artifact}` is outside reports/",
             )
         )
+        return StageResult(
+            stage="deterministic", verdict=VerdictKind.FAIL, findings=findings
+        )
+
+    artifact = resolved
     if not artifact.is_file():
         findings.append(
             Finding(

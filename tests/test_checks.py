@@ -84,3 +84,24 @@ def test_extract_source_urls() -> None:
         "https://sqlite.org/wal.html",
         "https://example.com/wal-tradeoffs",
     ]
+
+
+def test_dotdot_traversal_fails_without_read(tmp_path: Path) -> None:
+    result = run_deterministic(tmp_path, _manifest(artifact="reports/../../outside.md"))
+    assert result.verdict == VerdictKind.FAIL
+    assert result.findings[0].criterion_id == "det/artifact-path"
+
+
+def test_absolute_artifact_fails_without_read(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.md"
+    outside.write_text("secret AKIAABCDEFGHIJKLMNOP")
+    result = run_deterministic(tmp_path, _manifest(artifact=str(outside)))
+    assert result.verdict == VerdictKind.FAIL
+    assert result.findings[0].criterion_id == "det/artifact-path"
+    assert all("AKIA" not in f.evidence for f in result.findings)
+
+
+def test_indented_source_line_is_recognized(tmp_path: Path) -> None:
+    _write(tmp_path, "Claim [S1].\n\n## Sources\n  - [S1] https://a.example\n")
+    result = run_deterministic(tmp_path, _manifest())
+    assert result.verdict == VerdictKind.PASS
