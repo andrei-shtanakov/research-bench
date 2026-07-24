@@ -19,7 +19,9 @@ def run_link_resolve(
         for url in urls:
             try:
                 response = own_client.head(url)
-                if response.status_code == 405:
+                if response.status_code >= 400:
+                    # Real hosts often reject HEAD (403/404/405/501) while
+                    # GET works fine; only the GET verdict is authoritative.
                     response = own_client.get(url)
             except httpx.HTTPError as exc:
                 return StageResult(

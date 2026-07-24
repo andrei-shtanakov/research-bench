@@ -23,6 +23,18 @@ def test_http_404_is_content_fail() -> None:
     assert result.findings[0].criterion_id == "det/link-dead"
 
 
+def test_head_403_falls_back_to_get_pass() -> None:
+    # Real hosts often reject HEAD (403/404/501) while GET works fine.
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "HEAD":
+            return httpx.Response(403)
+        return httpx.Response(200)
+
+    client = _client(handler)
+    result = run_link_resolve(["https://a.example/head-blocked"], client=client)
+    assert result.verdict == VerdictKind.PASS
+
+
 def test_transport_error_is_error_not_fail() -> None:
     def handler(req: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("dns failure", request=req)
