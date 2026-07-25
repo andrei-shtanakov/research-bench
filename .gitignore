@@ -5,3 +5,4 @@ spec/.executor-*
 spec/maestro-*
 spec/.maestro-*
 .pytest_cache/
+logs/
