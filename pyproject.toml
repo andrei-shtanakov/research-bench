@@ -15,7 +15,12 @@ bench-verify = "research_bench.cli:main"
 single-task-guard = "research_bench.guard:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.4", "pyrefly>=0.16"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "pyrefly>=0.16",
+    "jsonschema>=4.26.0",
+]
 
 [build-system]
 requires = ["hatchling"]
