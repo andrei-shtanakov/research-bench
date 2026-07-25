@@ -47,6 +47,35 @@ critic:
 
 GOOD_REPORT = "Claim [S1].\n\n## Sources\n- [S1] https://a.example/x\n"
 
+ECHO_ENV_VARS = [
+    "MAESTRO_PROFILE_SHA256",
+    "MAESTRO_VERIFIED_SOURCE_COMMIT",
+    "MAESTRO_VERIFIED_SOURCE_TREE",
+    "MAESTRO_WORKSTREAM_ID",
+    "MAESTRO_REWORK_ATTEMPT",
+]
+
+
+@pytest.fixture(autouse=True)
+def _default_identity_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Valid Maestro echo-env by default; individual tests delete/override.
+
+    The five-var contract (profile/commit/tree/workstream/rework_attempt)
+    is fail-closed: any test exercising the normal pipeline needs all five
+    present, so this autouse fixture supplies safe defaults and the
+    identity-error tests explicitly `delenv`/override the one they probe.
+    """
+    monkeypatch.setenv("MAESTRO_PROFILE_SHA256", "default-profile-sha")
+    monkeypatch.setenv("MAESTRO_VERIFIED_SOURCE_COMMIT", "default-commit-sha")
+    monkeypatch.setenv("MAESTRO_VERIFIED_SOURCE_TREE", "default-tree-sha")
+    monkeypatch.setenv("MAESTRO_WORKSTREAM_ID", "default-ws")
+    monkeypatch.setenv("MAESTRO_REWORK_ATTEMPT", "0")
+
+
+def _validate_v2(document: dict[str, object]) -> None:
+    schema = json.loads(VENDORED_SCHEMA_PATH.read_text())
+    jsonschema.Draft202012Validator(schema).validate(document)
+
 
 def _stage(stage: Stage, verdict: VerdictKind) -> StageResult:
     return StageResult(stage=stage, verdict=verdict)
@@ -199,6 +228,8 @@ def test_v2_pass_writes_schema_valid_document_with_env_identity(
     monkeypatch.setenv("MAESTRO_PROFILE_SHA256", "profile-sha")
     monkeypatch.setenv("MAESTRO_VERIFIED_SOURCE_COMMIT", "commit-sha")
     monkeypatch.setenv("MAESTRO_VERIFIED_SOURCE_TREE", "tree-sha")
+    monkeypatch.setenv("MAESTRO_WORKSTREAM_ID", "ws-alpha")
+    monkeypatch.setenv("MAESTRO_REWORK_ATTEMPT", "2")
     root = _project(tmp_path)
     out_path = root / "out" / "attempt-001.json"
 
@@ -210,7 +241,8 @@ def test_v2_pass_writes_schema_valid_document_with_env_identity(
     identity = document["identity"]
     assert identity["verification_run_id"] == "run-xyz"
     assert identity["verification_attempt"] == 3
-    assert identity["rework_attempt"] == 0
+    assert identity["rework_attempt"] == 2
+    assert identity["workstream_id"] == "ws-alpha"
     assert identity["artifact"] == "reports/topic-x/result.md"
     assert len(identity["artifact_sha256"]) == 64
     assert identity["profile_sha256"] == "profile-sha"
@@ -218,19 +250,142 @@ def test_v2_pass_writes_schema_valid_document_with_env_identity(
     assert identity["verified_source_tree"] == "tree-sha"
     assert document["findings"] == []
 
-    schema = json.loads(VENDORED_SCHEMA_PATH.read_text())
-    jsonschema.Draft202012Validator(schema).validate(document)
+    _validate_v2(document)
 
 
-def test_v2_missing_env_identity_defaults_to_empty_string(tmp_path: Path) -> None:
+# --- fail-closed: the five-var echo-env contract ------------------------
+
+
+@pytest.mark.parametrize("missing_var", ECHO_ENV_VARS)
+def test_v2_missing_identity_env_var_is_error_document_exit_2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    missing_var: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.delenv(missing_var, raising=False)
     root = _project(tmp_path)
     out_path = root / "out" / "attempt-001.json"
+
     code = _run_v2(root, out_path)
-    assert code == 0
+
+    assert code == 2
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "ERROR"
+    assert document["findings"] == []
+    _validate_v2(document)
+    assert missing_var in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("empty_value", ["", "   "])
+def test_v2_empty_identity_env_var_is_error_document_exit_2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, empty_value: str
+) -> None:
+    monkeypatch.setenv("MAESTRO_WORKSTREAM_ID", empty_value)
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+
+    code = _run_v2(root, out_path)
+
+    assert code == 2
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "ERROR"
+    _validate_v2(document)
+
+
+def test_v2_rework_attempt_not_an_integer_is_error_document_exit_2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("MAESTRO_REWORK_ATTEMPT", "not-an-int")
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+
+    code = _run_v2(root, out_path)
+
+    assert code == 2
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "ERROR"
+    assert document["identity"]["rework_attempt"] == 0
+    _validate_v2(document)
+    assert "MAESTRO_REWORK_ATTEMPT" in capsys.readouterr().err
+
+
+def test_v2_identity_error_document_still_carries_real_artifact_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Never-guess applies to echo fields, not independently-derivable ones.
+
+    Run id/attempt/artifact path/hashes stay real even on the fail-closed
+    ERROR path, since they aid debugging and are not fabricated.
+    """
+    monkeypatch.delenv("MAESTRO_WORKSTREAM_ID", raising=False)
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+
+    code = _run_v2(root, out_path, verification_run_id="run-real", attempt=5)
+
+    assert code == 2
     identity = json.loads(out_path.read_text())["identity"]
-    assert identity["profile_sha256"] == ""
-    assert identity["verified_source_commit"] == ""
-    assert identity["verified_source_tree"] == ""
+    assert identity["verification_run_id"] == "run-real"
+    assert identity["verification_attempt"] == 5
+    assert identity["artifact"] == "reports/topic-x/result.md"
+    assert len(identity["artifact_sha256"]) == 64
+    assert len(identity["criteria_sha256"]) == 64
+    assert identity["workstream_id"] == ""
+
+
+def test_v2_identity_error_writes_no_pipeline_output_and_empty_raw(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pipeline never runs when identity is invalid (fail fast)."""
+    monkeypatch.delenv("MAESTRO_PROFILE_SHA256", raising=False)
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+    with (
+        patch("research_bench.cli.run_deterministic") as deterministic,
+        patch("research_bench.cli.run_link_resolve") as link_resolve,
+        patch("research_bench.cli.run_critic") as critic,
+    ):
+        code = run_verify_v2(
+            root=root,
+            config_path=root / "bench.config.yaml",
+            artifact_rel="reports/topic-x/result.md",
+            criteria_path=root / "staging" / "staged.criteria",
+            out_path=out_path,
+            verification_run_id="run-1",
+            attempt=1,
+        )
+    assert code == 2
+    deterministic.assert_not_called()
+    link_resolve.assert_not_called()
+    critic.assert_not_called()
+    assert (root / "out" / "attempt-001.raw.txt").read_text() == ""
+
+
+# --- fail-closed: BaseException during the pipeline ----------------------
+
+
+def test_v2_keyboard_interrupt_still_writes_error_document(tmp_path: Path) -> None:
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+    with (
+        patch("research_bench.cli.run_deterministic", side_effect=KeyboardInterrupt),
+        pytest.raises(KeyboardInterrupt),
+    ):
+        run_verify_v2(
+            root=root,
+            config_path=root / "bench.config.yaml",
+            artifact_rel="reports/topic-x/result.md",
+            criteria_path=root / "staging" / "staged.criteria",
+            out_path=out_path,
+            verification_run_id="run-123",
+            attempt=1,
+        )
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "ERROR"
+    _validate_v2(document)
 
 
 def test_v2_fail_verdict_exit_1_document_written(tmp_path: Path) -> None:
