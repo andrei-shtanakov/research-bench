@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "verdict": "PASS",
+  "stages": [
+    {
+      "stage": "deterministic",
+      "verdict": "PASS",
+      "findings": [],
+      "detail": "0 finding(s)"
+    },
+    {
+      "stage": "link-resolve",
+      "verdict": "PASS",
+      "findings": [],
+      "detail": "6 url(s) checked"
+    },
+    {
+      "stage": "critic",
+      "verdict": "PASS",
+      "findings": [
+        {
+          "criterion_id": "source-coverage",
+          "severity": "info",
+          "evidence": "Nearly every factual/technical sentence carries a bracketed marker, e.g. 'the process writes the original content of that page into the rollback journal,\" and the changes are then written directly into the database file [S3]' and 'SQLite versions before 3.22.0 required write privileges even for read-only access [S1]'. Passages not tied to a specific source are explicitly flagged as the author's inference (e.g. 'that extrapolation is my inference, not a measured result') rather than presented as fact."
+        },
+        {
+          "criterion_id": "synthesis",
+          "severity": "info",
+          "evidence": "Report repeatedly separates evidence from inference, e.g. 'From this I infer that the documentation's \"significantly faster in most scenarios\" claim [S1] holds on an ordinary application stack... that extrapolation is my inference, not a measured result' and 'For an orchestrator whose single writer already serializes its own commits, the single-writer constraint costs nothing; this is my inference from the workload shape rather than a documented claim.'"
+        },
+        {
+          "criterion_id": "structure",
+          "severity": "info",
+          "evidence": "Section headers present: 'What WAL changes vs. the rollback journal', 'Concurrency properties', 'Crash safety and durability', 'Checkpointing: mechanics, cost, and starvation', and 'Recommendation', covering all five required topics."
+        },
+        {
+          "criterion_id": "independent-benchmark",
+          "severity": "info",
+          "evidence": "Source [S6] is https://blog.pecar.me/django-sqlite-benchmark (non-sqlite.org). Concrete numbers cited: 'Pečar recorded throughput rising from about 611 requests per second under the default DELETE rollback journal to about 781 requests per second after switching to WAL, roughly a 28% gain' and 'a slightly higher error rate under WAL (about 3.5% of requests failing versus 3.3% under the default mode)'."
+        }
+      ],
+      "detail": "all 4 criteria passed"
+    }
+  ],
+  "artifact": "reports/sqlite-wal/result.md",
+  "artifact_sha256": "b6ef56b46e6ea7906ee040c2d9cd9e345adde46bf27d961761b8349c9831c032",
+  "criteria_sha256": "03f7593267e4aad9261f91c4e4be6c958eb95d6afc2e10d85634462d5820e0d5",
+  "critic_version": "0.1.0",
+  "model": "claude-sonnet-5",
+  "prompt_version": "v1",
+  "attempt": 1,
+  "timestamp": "2026-07-25T03:26:25.195377+00:00"
+}
