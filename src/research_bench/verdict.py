@@ -35,8 +35,10 @@ class Finding(BaseModel):
     (the §7 declassification channel: actionable text for the report's
     author, never a rubric quote). It defaults to `""` here so v1/legacy
     findings (hand-built or produced by a v1-prompt critic response that
-    omits the field) keep validating unchanged; v2 emission requires a real
-    value via `FindingV2` below.
+    omits the field) keep validating unchanged; `FindingV2` below requires
+    the field to be *present* (the vendored schema has no `minLength` on
+    it), but non-empty, actionable content is demanded by the critic
+    prompt, not enforced by the model.
     """
 
     model_config = ConfigDict(extra="forbid")

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import jsonschema
+import pytest
 
 # Module-level constant for the vendored schema path
 VENDORED_SCHEMA_PATH = (
@@ -68,19 +69,37 @@ def test_stage_a_v1_document_does_not_validate() -> None:
     """Verify that a v1 Stage A verdict fails validation against v2 schema.
 
     This ensures the schema actually discriminates between generations.
+    `verdicts/sqlite-wal/` is an evidence root shared across generations --
+    picking the sorted-first `attempt-*.json` and assuming it's v1 would go
+    flaky the moment a v2 verdict lands under the same tree (e.g. a lower
+    attempt number sorting before an existing v1 file). Instead, scan all
+    candidates and pick the first one whose own `schema_version` is `1`,
+    so the fixture selection stays correct regardless of what else is under
+    the tree.
     """
     schema = load_vendored_schema()
     validator = jsonschema.Draft202012Validator(schema)
 
-    # Load the first v1 verdict file (sorted deterministically)
     verdicts_dir = Path(__file__).parent.parent / "verdicts" / "sqlite-wal"
-    v1_files = sorted(verdicts_dir.glob("**/attempt-*.json"))
+    candidates = sorted(verdicts_dir.glob("**/attempt-*.json"))
+    assert candidates, "No verdict files found in verdicts/sqlite-wal/"
 
-    assert v1_files, "No v1 verdict files found in verdicts/sqlite-wal/"
+    v1_document = None
+    v1_file = None
+    for candidate in candidates:
+        with open(candidate) as f:
+            document = json.load(f)
+        if document.get("schema_version") == 1:
+            v1_document = document
+            v1_file = candidate
+            break
 
-    v1_file = v1_files[0]
-    with open(v1_file) as f:
-        v1_document = json.load(f)
+    if v1_document is None:
+        pytest.skip(
+            "No schema_version=1 verdict found under verdicts/sqlite-wal/ "
+            f"(checked {len(candidates)} candidate file(s)); nothing to "
+            "assert non-validation against."
+        )
 
     # The v1 document should NOT validate against v2 schema
     errors = list(validator.iter_errors(v1_document))
