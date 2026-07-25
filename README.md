@@ -5,5 +5,4 @@ Design: workspace `_cowork_output/plans/2026-07-24-research-bench-stage-a-design
 
 - `bench-verify` — verification gate: deterministic checks → link-resolve → LLM critic.
   Exit contract: 0=PASS, 1=FAIL, 2=ERROR (fail-closed; ERROR != FAIL != PASS).
-- `single-task-guard` — spec-runner pre_start plugin: exactly one executable task.
 - Verdicts are append-only: `verdicts/<topic>/<artifact_sha256>/attempt-NNN.{json,md,raw.txt}`.

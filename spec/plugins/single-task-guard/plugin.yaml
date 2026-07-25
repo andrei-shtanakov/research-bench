@@ -1,8 +1,0 @@
-name: single-task-guard
-description: "Stage A pilot: block execution unless exactly one executable task"
-version: "0.1.0"
-hooks:
-  pre_start:
-    command: uv run --project "$SR_PROJECT_ROOT" single-task-guard
-    run_on: always
-    blocking: true

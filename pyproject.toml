@@ -12,7 +12,6 @@ dependencies = [
 
 [project.scripts]
 bench-verify = "research_bench.cli:main"
-single-task-guard = "research_bench.guard:main"
 
 [dependency-groups]
 dev = [
