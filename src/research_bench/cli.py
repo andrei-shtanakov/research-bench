@@ -8,6 +8,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from .checks import extract_source_urls, run_deterministic
 from .criteria import CriteriaManifest, load_criteria
 from .critic import CriticConfig, load_critic_config, run_critic
@@ -127,6 +129,64 @@ def _read_echo_env() -> tuple[dict[str, str], list[str]]:
     return values, missing
 
 
+def _build_v2_document(
+    *,
+    verification_run_id: str,
+    attempt: int,
+    rework_attempt: int,
+    workstream_id: str,
+    artifact_rel: str,
+    artifact_sha256: str,
+    criteria_sha256: str,
+    profile_sha256: str,
+    verified_source_commit: str,
+    verified_source_tree: str,
+    verdict: VerdictKind,
+) -> tuple[VerdictDocumentV2, str]:
+    """Build a `VerdictDocumentV2`; degrade instead of raising when invalid.
+
+    Guards against a construction-time `ValidationError` so the
+    always-write guarantee can never be skipped by a crash from a
+    malformed CLI arg. The vendored schema is the contract, not our
+    pydantic mirror: its
+    `verification_attempt.minimum` is `1` (checked directly against
+    `contracts/maestro-verdict-v2/verdict_v2.json`), matching this
+    model's `ge=1` -- an out-of-range `--attempt` (e.g. `0` or negative)
+    is clamped to `1` on a retry, and the real value is named in the
+    returned reason string (empty if no degradation was needed). If the
+    retry itself still fails, the `ValidationError` propagates to the
+    caller's own try/except, whose "failed to write verdict" branch is
+    the absolute last resort.
+    """
+
+    def _identity(resolved_attempt: int) -> VerdictIdentityV2:
+        return VerdictIdentityV2(
+            verification_run_id=verification_run_id,
+            verification_attempt=resolved_attempt,
+            rework_attempt=rework_attempt,
+            workstream_id=workstream_id,
+            artifact=artifact_rel,
+            artifact_sha256=artifact_sha256,
+            criteria_sha256=criteria_sha256,
+            profile_sha256=profile_sha256,
+            verified_source_commit=verified_source_commit,
+            verified_source_tree=verified_source_tree,
+        )
+
+    try:
+        document = VerdictDocumentV2(
+            identity=_identity(attempt), verdict=verdict, findings=[]
+        )
+        return document, ""
+    except ValidationError:
+        clamped = max(attempt, 1)
+        reason = f"verification_attempt={attempt} clamped to {clamped} (schema minimum)"
+        document = VerdictDocumentV2(
+            identity=_identity(clamped), verdict=verdict, findings=[]
+        )
+        return document, reason
+
+
 def _write_v2_identity_error(
     *,
     root: Path,
@@ -147,25 +207,26 @@ def _write_v2_identity_error(
     reason field, so the reason naming the missing/invalid var(s) is
     surfaced on stderr only; `findings` and `.raw.txt` stay empty (no
     critic ran), consistent with v1's "critic didn't run" semantics.
+    Document construction happens inside this function's own try, so a
+    construction-time crash (see `_build_v2_document`) can never leave
+    `--out` without a document.
     """
-    document = VerdictDocumentV2(
-        identity=VerdictIdentityV2(
+    try:
+        document, degrade_reason = _build_v2_document(
             verification_run_id=verification_run_id,
-            verification_attempt=attempt,
+            attempt=attempt,
             rework_attempt=0,
             workstream_id="",
-            artifact=artifact_rel,
+            artifact_rel=artifact_rel,
             artifact_sha256=sha256_file(root / artifact_rel),
             criteria_sha256=sha256_file(criteria_path),
             profile_sha256="",
             verified_source_commit="",
             verified_source_tree="",
-        ),
-        verdict=VerdictKind.ERROR,
-        findings=[],
-    )
-    reason = "; ".join(reasons)
-    try:
+            verdict=VerdictKind.ERROR,
+        )
+        all_reasons = [*reasons, *([degrade_reason] if degrade_reason else [])]
+        reason = "; ".join(all_reasons)
         write_v2_report(document, out_path, raw_output="")
         print(f"bench-verify: ERROR -> {out_path} ({reason})", file=sys.stderr)
     except Exception as exc:  # writing the verdict itself failed
@@ -273,24 +334,22 @@ def run_verify_v2(
         verdict = VerdictKind.ERROR
     finally:
         try:
-            document = VerdictDocumentV2(
-                identity=VerdictIdentityV2(
-                    verification_run_id=verification_run_id,
-                    verification_attempt=attempt,
-                    rework_attempt=rework_attempt,
-                    workstream_id=workstream_id,
-                    artifact=artifact_rel,
-                    artifact_sha256=sha256_file(root / artifact_rel),
-                    criteria_sha256=sha256_file(criteria_path),
-                    profile_sha256=profile_sha256,
-                    verified_source_commit=verified_source_commit,
-                    verified_source_tree=verified_source_tree,
-                ),
+            document, degrade_reason = _build_v2_document(
+                verification_run_id=verification_run_id,
+                attempt=attempt,
+                rework_attempt=rework_attempt,
+                workstream_id=workstream_id,
+                artifact_rel=artifact_rel,
+                artifact_sha256=sha256_file(root / artifact_rel),
+                criteria_sha256=sha256_file(criteria_path),
+                profile_sha256=profile_sha256,
+                verified_source_commit=verified_source_commit,
+                verified_source_tree=verified_source_tree,
                 verdict=verdict,
-                findings=[],
             )
             write_v2_report(document, out_path, raw_output)
-            print(f"bench-verify: {verdict} -> {out_path}", file=sys.stderr)
+            suffix = f" ({degrade_reason})" if degrade_reason else ""
+            print(f"bench-verify: {verdict} -> {out_path}{suffix}", file=sys.stderr)
         except Exception as exc:  # writing the verdict itself failed
             write_failed = True
             print(f"bench-verify: failed to write verdict: {exc}", file=sys.stderr)

@@ -16,7 +16,7 @@ from unittest.mock import patch
 import jsonschema
 import pytest
 
-from research_bench.cli import main, run_verify_v2
+from research_bench.cli import ECHO_ENV_VARS, main, run_verify_v2
 from research_bench.verdict import Stage, StageResult, VerdictKind
 
 VENDORED_SCHEMA_PATH = (
@@ -46,14 +46,6 @@ critic:
 """
 
 GOOD_REPORT = "Claim [S1].\n\n## Sources\n- [S1] https://a.example/x\n"
-
-ECHO_ENV_VARS = [
-    "MAESTRO_PROFILE_SHA256",
-    "MAESTRO_VERIFIED_SOURCE_COMMIT",
-    "MAESTRO_VERIFIED_SOURCE_TREE",
-    "MAESTRO_WORKSTREAM_ID",
-    "MAESTRO_REWORK_ATTEMPT",
-]
 
 
 @pytest.fixture(autouse=True)
@@ -362,6 +354,72 @@ def test_v2_identity_error_writes_no_pipeline_output_and_empty_raw(
     link_resolve.assert_not_called()
     critic.assert_not_called()
     assert (root / "out" / "attempt-001.raw.txt").read_text() == ""
+
+
+def test_v2_identity_error_survives_invalid_attempt_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: schema `verification_attempt.minimum` is 1, argparse isn't.
+
+    `--attempt` (argparse `type=int`) has no lower bound. Combined with a
+    missing echo-env var (forcing the identity-error path), a naive
+    `VerdictIdentityV2(verification_attempt=0, ...)` raises a pydantic
+    `ValidationError` -- BEFORE this task's fix, that happened outside any
+    try/except in `_write_v2_identity_error` and crashed the whole call:
+    no document at --out, no contractual exit 2. This is exactly the
+    "untrustworthy invocation" case the always-write guarantee exists for.
+    """
+    monkeypatch.delenv("MAESTRO_WORKSTREAM_ID", raising=False)
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+
+    code = main(
+        [
+            "--out",
+            str(out_path),
+            "--artifact",
+            "reports/topic-x/result.md",
+            "--criteria",
+            str(root / "staging" / "staged.criteria"),
+            "--verification-run-id",
+            "run-1",
+            "--attempt",
+            "0",
+            "--root",
+            str(root),
+        ]
+    )
+
+    assert code == 2
+    assert out_path.is_file()
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "ERROR"
+    assert document["identity"]["verification_attempt"] == 1
+    _validate_v2(document)
+
+
+def test_v2_pipeline_document_construction_survives_invalid_attempt_zero(
+    tmp_path: Path,
+) -> None:
+    """Same construction-time crash risk in the pipeline's `finally` block.
+
+    Not just the identity-error path: before the fix, a malformed
+    `--attempt 0` with otherwise-valid identity would raise inside
+    `finally`'s inner try, get caught by the broad `except Exception`, and
+    set `write_failed=True` WITHOUT ever writing a document -- exit 2 with
+    nothing at --out, same always-write violation. The actual verdict
+    (here PASS) must survive; only the out-of-range attempt is clamped.
+    """
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+
+    code = _run_v2(root, out_path, attempt=0)
+
+    assert code == 0
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "PASS"
+    assert document["identity"]["verification_attempt"] == 1
+    _validate_v2(document)
 
 
 # --- fail-closed: BaseException during the pipeline ----------------------
