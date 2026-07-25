@@ -17,9 +17,10 @@ workstream-final verification (the `VERIFYING` phase). Summary; see
 - **Schema pin:** everything consumed from Maestro (verdict document shape,
   `DomainProfile` field names, the invocation contract) is vendored/pinned at
   `github.com/andrei-shtanakov/maestro` commit `346222e3b` (PR #105 —
-  verification FSM + domain contracts; followed by PR #106, which conveys
-  `workstream_id`/`rework_attempt` via echo env). `contracts/maestro-verdict-v2/`
-  holds the vendored verdict-v2 JSON schema and the pin record.
+  verification FSM + domain contracts; merged) plus PR #106 (merged), which
+  conveys `workstream_id`/`rework_attempt` via echo env.
+  `contracts/maestro-verdict-v2/` holds the vendored verdict-v2 JSON schema
+  and the pin record.
 - **Invocation:** Maestro spawns
   `uv run bench-verify --artifact {artifact} --criteria {criteria} --out {out}
   --verification-run-id {run_id} --attempt {attempt}` — Maestro owns the
@@ -29,6 +30,11 @@ workstream-final verification (the `VERIFYING` phase). Summary; see
   `MAESTRO_VERIFIED_SOURCE_TREE`, `MAESTRO_WORKSTREAM_ID`,
   `MAESTRO_REWORK_ATTEMPT`. Any missing/blank var short-circuits the whole
   pipeline (no stage runs) and writes an `ERROR` verdict document instead.
+  The verifier subprocess runs under Maestro's starved env
+  (`inherit_env=False`: only `PATH` plus the five `MAESTRO_*` vars are
+  passed through), so the pinned `claude` CLI the critic stage shells out to
+  must authenticate via its filesystem config (`~/.claude`), not env vars —
+  to be proven in golden run 1.
 - **Exit codes:** unchanged from Stage A — `0=PASS, 1=FAIL, 2=ERROR`; a
   verdict document is written at `--out` on every path, including an
   unhandled exception (fail-closed always-write).

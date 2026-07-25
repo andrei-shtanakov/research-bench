@@ -16,11 +16,16 @@ from pathlib import Path
 from research_bench.criteria import CriteriaManifest
 from research_bench.critic import (
     CRITIC_OUTPUT_JSON_SCHEMA,
+    _CriterionVerdict,
+    _CriticOutput,
+    _StrictCriterionVerdict,
+    _StrictCriticOutput,
+    _StrictFinding,
     build_prompt,
     load_critic_config,
     run_critic,
 )
-from research_bench.verdict import VerdictKind
+from research_bench.verdict import Finding, VerdictKind
 
 CONFIG = """\
 critic:
@@ -77,6 +82,27 @@ def _recording_runner(stdout: str, returncode: int = 0):
 
     runner.calls = calls  # type: ignore[attr-defined]
     return runner
+
+
+# --- strict/lenient parsing-model field drift ----------------------------
+
+
+def test_strict_finding_fields_match_lenient_finding() -> None:
+    """_StrictFinding enforces the CLI's JSON schema; it must mirror the
+    lenient `Finding` it's a stand-in for, or a field added/dropped on one
+    side silently desyncs enforcement from what parsing actually accepts.
+    """
+    assert set(_StrictFinding.model_fields) == set(Finding.model_fields)
+
+
+def test_strict_criterion_verdict_fields_match_lenient() -> None:
+    assert set(_StrictCriterionVerdict.model_fields) == set(
+        _CriterionVerdict.model_fields
+    )
+
+
+def test_strict_critic_output_fields_match_lenient() -> None:
+    assert set(_StrictCriticOutput.model_fields) == set(_CriticOutput.model_fields)
 
 
 # --- native structured output: the --json-schema flag -----------------

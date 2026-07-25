@@ -44,7 +44,7 @@ def test_pin_file_records_expected_commit() -> None:
         content = f.read()
 
     lines = content.strip().split("\n")
-    assert len(lines) == 2, f"Expected 2 lines, got {len(lines)}"
+    assert len(lines) == 3, f"Expected 3 lines, got {len(lines)}"
 
     # Check repo line
     repo_line = lines[0]
@@ -55,6 +55,13 @@ def test_pin_file_records_expected_commit() -> None:
     # Check commit line contains expected commit hash
     commit_line = lines[1]
     assert "346222e3b" in commit_line, f"Commit hash not found in {commit_line}"
+
+    # Check note line: five-var echo env addendum, per merged Maestro PR #106
+    note_line = lines[2]
+    assert note_line.startswith("note:"), (
+        f"Third line should start with 'note:', got {note_line}"
+    )
+    assert "#106" in note_line, f"PR #106 reference not found in {note_line}"
 
 
 def test_stage_a_v1_document_does_not_validate() -> None:

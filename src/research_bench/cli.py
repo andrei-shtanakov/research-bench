@@ -108,8 +108,9 @@ def run_verify(root: Path, brief_dir: Path, config_path: Path) -> int:
     return EXIT_CODES[verdict]
 
 
-# The five Maestro echo-env vars a v2 invocation MUST supply (fix-PR,
-# in flight upstream at Task 3 time): fail-closed identity, never guessed.
+# The five Maestro echo-env vars a v2 invocation MUST supply. The
+# workstream_id/rework_attempt pair shipped in Maestro PR #106 (merged);
+# fail-closed identity, never guessed.
 ECHO_ENV_VARS: tuple[str, ...] = (
     "MAESTRO_PROFILE_SHA256",
     "MAESTRO_VERIFIED_SOURCE_COMMIT",
