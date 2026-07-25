@@ -39,6 +39,11 @@ def run_link_resolve(
                         criterion_id="det/link-dead",
                         severity="major",
                         evidence=f"{url} -> HTTP {response.status_code}",
+                        author_feedback=(
+                            f"Fix or replace the source link {url} — it "
+                            f"returned HTTP {response.status_code} and doesn't "
+                            "resolve."
+                        ),
                     )
                 )
     finally:

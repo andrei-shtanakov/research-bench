@@ -29,13 +29,22 @@ Stage = Literal["deterministic", "link-resolve", "critic"]
 
 
 class Finding(BaseModel):
-    """A single finding from the critic referencing a criterion."""
+    """A single finding from a verification stage referencing a criterion.
+
+    `author_feedback` mirrors the vendored v2 schema's `Finding.author_feedback`
+    (the §7 declassification channel: actionable text for the report's
+    author, never a rubric quote). It defaults to `""` here so v1/legacy
+    findings (hand-built or produced by a v1-prompt critic response that
+    omits the field) keep validating unchanged; v2 emission requires a real
+    value via `FindingV2` below.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     criterion_id: str
     severity: Literal["info", "minor", "major"]
     evidence: str
+    author_feedback: str = ""
 
 
 class StageResult(BaseModel):
@@ -123,6 +132,19 @@ class FindingV2(BaseModel):
     severity: Literal["info", "minor", "major"]
     evidence: str
     author_feedback: str
+
+
+def finding_to_v2(finding: Finding) -> FindingV2:
+    """Translate a stage's v1 `Finding` into the vendored v2 `Finding` shape.
+
+    The two models share an identical field set (v1's `author_feedback`
+    defaults to `""` for legacy callers; v2 requires it present, any string
+    including `""` satisfies the vendored schema). Round-tripping through
+    `model_dump`/`model_validate` means a field-set drift between the two
+    models raises immediately (both are `extra="forbid"`) instead of
+    silently dropping data.
+    """
+    return FindingV2.model_validate(finding.model_dump())
 
 
 class VerdictIdentityV2(BaseModel):

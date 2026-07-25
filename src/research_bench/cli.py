@@ -16,6 +16,7 @@ from .critic import CriticConfig, load_critic_config, run_critic
 from .links import run_link_resolve
 from .verdict import (
     EXIT_CODES,
+    Finding,
     Stage,
     StageResult,
     VerdictDocumentV2,
@@ -23,6 +24,7 @@ from .verdict import (
     VerdictKind,
     VerdictReport,
     allocate_attempt,
+    finding_to_v2,
     sha256_file,
     write_report,
     write_v2_report,
@@ -142,6 +144,7 @@ def _build_v2_document(
     verified_source_commit: str,
     verified_source_tree: str,
     verdict: VerdictKind,
+    findings: list[Finding],
 ) -> tuple[VerdictDocumentV2, str]:
     """Build a `VerdictDocumentV2`; degrade instead of raising when invalid.
 
@@ -157,7 +160,13 @@ def _build_v2_document(
     retry itself still fails, the `ValidationError` propagates to the
     caller's own try/except, whose "failed to write verdict" branch is
     the absolute last resort.
+
+    `findings` are the stage-collected v1-shaped `Finding`s (deterministic +
+    link-resolve + critic), translated to the v2 shape via `finding_to_v2`
+    -- this is what closes Task 3's `findings=[]` deferral: a FAIL verdict
+    now always carries the findings that produced it.
     """
+    findings_v2 = [finding_to_v2(f) for f in findings]
 
     def _identity(resolved_attempt: int) -> VerdictIdentityV2:
         return VerdictIdentityV2(
@@ -175,14 +184,14 @@ def _build_v2_document(
 
     try:
         document = VerdictDocumentV2(
-            identity=_identity(attempt), verdict=verdict, findings=[]
+            identity=_identity(attempt), verdict=verdict, findings=findings_v2
         )
         return document, ""
     except ValidationError:
         clamped = max(attempt, 1)
         reason = f"verification_attempt={attempt} clamped to {clamped} (schema minimum)"
         document = VerdictDocumentV2(
-            identity=_identity(clamped), verdict=verdict, findings=[]
+            identity=_identity(clamped), verdict=verdict, findings=findings_v2
         )
         return document, reason
 
@@ -224,6 +233,7 @@ def _write_v2_identity_error(
             verified_source_commit="",
             verified_source_tree="",
             verdict=VerdictKind.ERROR,
+            findings=[],
         )
         all_reasons = [*reasons, *([degrade_reason] if degrade_reason else [])]
         reason = "; ".join(all_reasons)
@@ -263,9 +273,12 @@ def run_verify_v2(
     `verified_source_tree`'s existing `MAESTRO_*` echo vars). If ANY of
     the five is missing/blank, or `rework_attempt` fails to parse as an
     int, the pipeline never runs -- an ERROR document is written
-    immediately and this returns exit 2. `findings` is always `[]`:
-    translating v1 `Finding` -> v2 `Finding` (which requires
-    `author_feedback`) is out of this task's binding rules.
+    immediately and this returns exit 2 with `findings=[]` (no stage ran).
+    Otherwise `findings` is the deterministic + link-resolve + critic
+    stages' findings, translated v1 `Finding` -> v2 `Finding` via
+    `finding_to_v2` (Task 4: the critic now authors `author_feedback` on
+    every finding; deterministic/link findings carry machine-authored
+    `author_feedback` text from their own call sites).
     """
     env_values, missing = _read_echo_env()
     rework_attempt = 0
@@ -346,6 +359,7 @@ def run_verify_v2(
                 verified_source_commit=verified_source_commit,
                 verified_source_tree=verified_source_tree,
                 verdict=verdict,
+                findings=[f for s in stages for f in s.findings],
             )
             write_v2_report(document, out_path, raw_output)
             suffix = f" ({degrade_reason})" if degrade_reason else ""

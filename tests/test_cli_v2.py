@@ -17,7 +17,7 @@ import jsonschema
 import pytest
 
 from research_bench.cli import ECHO_ENV_VARS, main, run_verify_v2
-from research_bench.verdict import Stage, StageResult, VerdictKind
+from research_bench.verdict import Finding, Stage, StageResult, VerdictKind
 
 VENDORED_SCHEMA_PATH = (
     Path(__file__).parent.parent
@@ -462,6 +462,92 @@ def test_v2_sidecars_written_same_stem(tmp_path: Path) -> None:
     assert code == 0
     assert (root / "out" / "attempt-001.md").is_file()
     assert (root / "out" / "attempt-001.raw.txt").is_file()
+
+
+# --- findings wired into the v2 document (Task 4) ------------------------
+
+
+def test_v2_deterministic_finding_populates_document_with_author_feedback(
+    tmp_path: Path,
+) -> None:
+    """A real (unmocked) deterministic-stage finding reaches the document.
+
+    `findings` used to be hardcoded `[]` in v2 mode (Task 3's deliberate
+    deferral). This proves the wiring: a bad artifact produces a FAIL
+    document whose `findings` are populated and schema-valid, each with a
+    non-empty `author_feedback` (the rework-addendum channel).
+    """
+    root = _project(tmp_path)
+    (root / "reports/topic-x/result.md").write_text("No sources here [S9].")
+    out_path = root / "out" / "attempt-001.json"
+
+    code = _run_v2(root, out_path)
+
+    assert code == 1
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "FAIL"
+    assert document["findings"]
+    for finding in document["findings"]:
+        assert finding["author_feedback"]
+    _validate_v2(document)
+
+
+def test_v2_critic_findings_translated_with_author_feedback_validate(
+    tmp_path: Path,
+) -> None:
+    """Critic-stage findings (with `author_feedback`) flow into the document.
+
+    `run_critic` is mocked at the boundary (same pattern as `_run_v2`), but
+    here it returns a FAIL with a populated finding to prove `cli.py`
+    translates v1 `Finding` -> v2 `Finding` end to end and the result
+    validates against the vendored schema.
+    """
+    root = _project(tmp_path)
+    out_path = root / "out" / "attempt-001.json"
+    critic_finding = Finding(
+        criterion_id="synthesis",
+        severity="major",
+        evidence="conclusion states X without qualification",
+        author_feedback="Distinguish your conclusion from the cited evidence.",
+    )
+    with (
+        patch(
+            "research_bench.cli.run_link_resolve",
+            return_value=_stage("link-resolve", VerdictKind.PASS),
+        ),
+        patch(
+            "research_bench.cli.run_critic",
+            return_value=(
+                StageResult(
+                    stage="critic",
+                    verdict=VerdictKind.FAIL,
+                    findings=[critic_finding],
+                    detail="1 of 1 criteria failed",
+                ),
+                "raw-critic-output",
+            ),
+        ),
+    ):
+        code = run_verify_v2(
+            root=root,
+            config_path=root / "bench.config.yaml",
+            artifact_rel="reports/topic-x/result.md",
+            criteria_path=root / "staging" / "staged.criteria",
+            out_path=out_path,
+            verification_run_id="run-123",
+            attempt=1,
+        )
+
+    assert code == 1
+    document = json.loads(out_path.read_text())
+    assert document["verdict"] == "FAIL"
+    [finding] = document["findings"]
+    assert finding["criterion_id"] == "synthesis"
+    assert finding["severity"] == "major"
+    assert finding["author_feedback"] == (
+        "Distinguish your conclusion from the cited evidence."
+    )
+    _validate_v2(document)
 
 
 # --- allocate_attempt is legacy-mode-only --------------------------------
