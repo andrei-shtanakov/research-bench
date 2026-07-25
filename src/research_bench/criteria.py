@@ -28,6 +28,14 @@ class CriteriaManifest(BaseModel):
 
 
 def load_criteria(path: Path) -> CriteriaManifest:
-    """Load and validate a criteria.yaml manifest."""
+    """Load and validate a criteria manifest from `path`, verbatim.
+
+    `path` is read exactly as given: no `briefs/<topic>/criteria.yaml`
+    assumption, no extension requirement. Legacy (`--brief`) callers pass
+    `briefs/<topic>/criteria.yaml`; v2 (`--out`) callers pass Maestro's
+    `--criteria` value directly, which may be an ephemeral staged copy
+    (e.g. `attempt-001.criteria`, no `.yaml` suffix) rather than a file
+    under `briefs/`.
+    """
     data = yaml.safe_load(path.read_text())
     return CriteriaManifest.model_validate(data)

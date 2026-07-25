@@ -49,3 +49,16 @@ def test_bad_criterion_id_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(ValidationError):
         load_criteria(path)
+
+
+def test_load_from_arbitrary_path_no_briefs_or_extension_assumption(
+    tmp_path: Path,
+) -> None:
+    """v2 (Maestro-owned) mode passes an ephemeral staged copy, e.g.
+    `attempt-001.criteria` outside `briefs/` with no `.yaml` suffix."""
+    path = tmp_path / "staging" / "attempt-001.criteria"
+    path.parent.mkdir()
+    path.write_text(VALID)
+    manifest = load_criteria(path)
+    assert manifest.schema_version == 1
+    assert [c.id for c in manifest.criteria] == ["source-coverage", "synthesis"]
