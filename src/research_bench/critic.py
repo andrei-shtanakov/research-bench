@@ -65,6 +65,16 @@ def _error(detail: str) -> StageResult:
     return StageResult(stage="critic", verdict=VerdictKind.ERROR, detail=detail)
 
 
+def _strip_fences(text: str) -> str:
+    """Strip a single leading/trailing markdown code fence if present."""
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 2 and lines[-1].strip() == "```":
+            return "\n".join(lines[1:-1])
+    return stripped
+
+
 def run_critic(
     config: CriticConfig,
     root: Path,
@@ -102,7 +112,10 @@ def run_critic(
         if not isinstance(envelope, dict):
             raise TypeError("envelope is not an object")
         cost = float(envelope.get("total_cost_usd", 0.0))
-        output = _CriticOutput.model_validate(json.loads(envelope["result"]))
+        result_text = envelope["result"]
+        if not isinstance(result_text, str):
+            raise TypeError("result is not a string")
+        output = _CriticOutput.model_validate(json.loads(_strip_fences(result_text)))
     except (
         json.JSONDecodeError,
         KeyError,

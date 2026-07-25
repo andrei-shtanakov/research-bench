@@ -9,3 +9,8 @@ criteria:
     description: >-
       Report covers WAL vs rollback journal, concurrency, crash-safety,
       checkpointing costs, and an explicit recommendation section
+  - id: independent-benchmark
+    description: >-
+      At least one cited source is an independent (non-sqlite.org) benchmark
+      or measurement, and the report states at least one concrete number
+      from it
