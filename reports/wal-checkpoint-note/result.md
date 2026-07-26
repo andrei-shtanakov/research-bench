@@ -1,10 +1,8 @@
 # WAL checkpointing — operational note for an embedded orchestrator
 
-<!-- line budget: title 1 -->
-
 ## Scope, provenance, and how to read this
 
-**The workload.** One long-lived orchestrator process embeds a single SQLite database in WAL mode: one writer committing small job-state transactions, many pollers each holding a short read transaction, and a database file that lives for months. Every mode and hazard below is judged against that deployment — what it costs this writer, these readers, and this file — not in the abstract.
+**The workload.** One long-lived orchestrator process embeds a single SQLite database in WAL mode: one writer committing small job-state transactions, many pollers each holding a short read transaction, and a database file that lives for months. Every mode and hazard below is judged against that deployment, not in the abstract.
 
 **Provenance.** The operator's designated primary source for this note is the internal documentation mirror at `http://127.0.0.1:8931/wal.html` [S1]; at authoring time the host refused connection on port 8931 and the mirror could not be retrieved. Nothing below is drawn from its contents. Every checkpoint claim therefore carries [S1] as the operator's source of record and, alongside it, the public SQLite page that claim was actually verified against [S2]–[S4].
 
@@ -20,7 +18,7 @@
 
 ## The four modes
 
-**Invocation and the shared cost.** All four are reached the same way, through `PRAGMA wal_checkpoint(<mode>)` or `sqlite3_wal_checkpoint_v2()` [S1][S3][S4]. `FULL`, `RESTART`, and `TRUNCATE` block new writers while they are pending but leave readers unimpeded [S1][S3]. In the table, `inferred:` marks my own judgment rather than a cited claim.
+**Invocation and the shared cost.** All four are reached the same way, through `PRAGMA wal_checkpoint(<mode>)` or `sqlite3_wal_checkpoint_v2()` [S1][S3][S4]. `FULL`, `RESTART`, and `TRUNCATE` block new writers while they are pending but leave readers unimpeded [S1][S3]. `inferred:` marks my judgment.
 
 | Mode | Waits on | Guarantees on completion | Effect on the `-wal` file | Consequence here |
 |---|---|---|---|---|
@@ -37,7 +35,7 @@
 
 **The trap.** Those two rules compose badly under overlap: if read transactions overlap so that at least one is open at every instant, some end mark is always live, the checkpointer can never advance past the oldest of them, no checkpoint ever completes, and the log is therefore never reset [S1][S2]. I infer that nothing surfaces as an error while this happens — each call returns having moved as far as the oldest live mark allowed — so the only symptom is a `-wal` file that never shrinks.
 
-**What it costs here.** The log then grows without bound, and read performance deteriorates as it does, because every reader must check the log for the content it needs and that check takes time proportional to the log's size [S1][S2]. This deployment generates the overlap by construction: I infer that a fleet of pollers on independent timers, each holding a short read transaction, is precisely the arrangement that keeps one mark live at every instant — short reads do not help if they are never all short at once — which makes starvation the steady state here rather than an edge case, and makes the degradation self-reinforcing as slower reads hold their marks longer.
+**What it costs here.** The log then grows without bound, and read performance deteriorates as it does, because every reader must check the log for the content it needs and that check takes time proportional to the log's size [S1][S2]. This deployment generates the overlap by construction: I infer that a fleet of pollers on independent timers, each holding a short read transaction, is precisely the arrangement that keeps one mark live at every instant — short reads do not help if the gaps between them never line up — which makes starvation the steady state here rather than an edge case, and makes the degradation self-reinforcing as slower reads hold their marks longer.
 
 ## What this means for the orchestrator
 
