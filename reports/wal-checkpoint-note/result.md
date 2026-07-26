@@ -49,4 +49,7 @@
 
 ## Sources
 
-<!-- line budget: 6 — four [Sn] URL entries -->
+- [S1] http://127.0.0.1:8931/wal.html — the operator's designated primary source of record for this note; unreachable at authoring time (connection refused on port 8931), so no claim above is drawn from it.
+- [S2] https://sqlite.org/wal.html
+- [S3] https://sqlite.org/c3ref/wal_checkpoint_v2.html
+- [S4] https://sqlite.org/pragma.html
