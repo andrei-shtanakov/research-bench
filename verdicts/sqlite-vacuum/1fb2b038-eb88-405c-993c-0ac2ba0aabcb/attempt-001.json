@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "identity": {
+    "verification_run_id": "1fb2b038-eb88-405c-993c-0ac2ba0aabcb",
+    "verification_attempt": 1,
+    "rework_attempt": 0,
+    "workstream_id": "sqlite-vacuum-report",
+    "artifact": "reports/sqlite-vacuum/result.md",
+    "artifact_sha256": "b2446a797bd62939d1e69cc35d854bc667a6d4cb711eb3b820107947dbca4d6e",
+    "criteria_sha256": "8ee8b2e65b198a1b7c6a37fc836a718d79daaef0a998e0f919a06ff3a4197a6a",
+    "profile_sha256": "307ef2737e49787dc3f5d6e5aac9c6e583b26e7f00277c60736c1dbafda38dc1",
+    "verified_source_commit": "4ed9ae0b213e56eb8d76e7c1dfd8519fe1ba8fbe",
+    "verified_source_tree": "c6fafa89d4147b68248cdb4aafe9afaec650946f"
+  },
+  "verdict": "PASS",
+  "findings": [
+    {
+      "criterion_id": "source-coverage",
+      "severity": "minor",
+      "evidence": "\"Between calls it accumulates.\" (end of the incremental_vacuum File & freelist paragraph) states a behavioral consequence with no [Sn] marker and no explicit inference flag, unlike almost every other sentence in the report.",
+      "author_feedback": "Add a citation (or an explicit 'I infer' tag) to the sentence 'Between calls it accumulates' so it matches the citation discipline used everywhere else in the piece."
+    },
+    {
+      "criterion_id": "synthesis",
+      "severity": "minor",
+      "evidence": "In the Recommendation section: \"One writer knows when it is idle; small transactions leave gaps, not one busy period.\" is asserted flatly with no 'I infer' tag, unlike the surrounding sentences that carefully flag inference.",
+      "author_feedback": "Tag the claim about the single writer knowing when it's idle and small transactions leaving gaps as your own inference — right now it reads as a flat assertion while nearly every other judgment call in the piece is explicitly flagged."
+    },
+    {
+      "criterion_id": "synthesis",
+      "severity": "minor",
+      "evidence": "Phrases like \"Nothing is scheduled, so no maintenance lock and no window — the work rides commits the writer was already making [S2]\" and \"no maintenance operation, so no lock, no window, nothing to interrupt part-way\" attach a citation to a derived characterization (\"no window\", \"no lock\") rather than to literal documented text, without an inference flag on that specific derived phrase.",
+      "author_feedback": "For phrases like 'no maintenance lock and no window' that are your own characterization of what the cited behavior implies, either flag them as inference or rephrase so the citation only covers the literal documented fact and not your added interpretation."
+    }
+  ]
+}
