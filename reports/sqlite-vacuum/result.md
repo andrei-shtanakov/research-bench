@@ -94,6 +94,16 @@ The five options differ in how much space they return, but they separate more sh
 
 ## Recommendation for this workload
 
+**The recommendation is `auto_vacuum=INCREMENTAL`, set when the database file is created, with the freelist drained by a scheduled, bounded `PRAGMA incremental_vacuum(N)` — and `VACUUM INTO` followed by an explicit file swap held in reserve as occasional out-of-band compaction.**
+
+**Availability over footprint.** Under `incremental` no space returns until the pragma is invoked, and a call removes up to N pages from the freelist and truncates the file by that same amount {pragma}. In-place `VACUUM` is instead a write operation that fails when another connection holds a lock preventing writes {lang_vacuum}, and WAL allows one writer at a time {wal} for a span no page bounds. From these I infer that `incremental` is the only strategy here whose pause is set by a parameter rather than by database size — what a workload that would rather carry an oversized file than stall requires.
+
+**Single writer, frequent small transactions.** One writer means one process already knows when it is idle, and small transactions leave gaps rather than one long busy period. The rival that also reclaims continuously, `auto_vacuum=full`, truncates at every transaction commit with no way to defer that work, while switching between `full` and `incremental` is free at any time {pragma}. From these I infer that `incremental` dominates `full` here rather than merely differing: the standing investment and the reclamation work are identical, so `incremental` buys control over when that work lands and keeps `full` one pragma away if the control proves not worth exercising.
+
+**Months-long file lifetime.** Auto-vacuuming must be turned on before any tables are created and cannot be enabled or disabled afterwards; moving an existing database from `none` happens only by running `VACUUM` {pragma}, which in WAL mode is the one property `VACUUM` can still change {lang_vacuum}. From these I infer the choice is made once, at creation, for the life of the file — a months-lived database created at `none` has already spent it, recoverable only by paying the full rebuild pause once.
+
+**What the choice costs.** The mode requires pointer-map pages, roughly one per 820 at the default page size {fileformat2}{pragma}; my judgment is that their upkeep on every page relocation outweighs the space they occupy. It does not defragment — it only truncates freelist pages, can worsen fragmentation because pages move {pragma}, and does not compact partially filled pages {lang_vacuum}. That gap is why `VACUUM INTO` stays in the plan rather than among the alternatives: it yields a fully vacuumed copy while the original file is unchanged {lang_vacuum}, buying the repacking without the in-place rebuild's write-slot pause, at a swap the documentation does not describe and that I infer costs a process restart. Last, the set-at-creation constraint {pragma} is the cost of being wrong: no later observation undoes it without a rebuild.
+
 ### What to monitor and when to act
 
 ### When to reconsider
