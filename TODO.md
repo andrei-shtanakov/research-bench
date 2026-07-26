@@ -34,7 +34,7 @@
   подтверждены live-регрессией внутри той же фазы).
 - 🚧 **Golden run 2 не выполнен** — на хосте оператора нет docker-рантайма, а именно он
   гейтит criteria-visibility (verifier-only рубрика). Механизм сдан, live-доказательства нет.
-- ⚠️ **Аггрегатного бюджета у link-resolve нет** — виден только per-request таймаут. См. чекбокс.
+- ⚠️ **Агрегатного бюджета у link-resolve нет** — виден только per-request таймаут. См. чекбокс.
 
 ## Правила ведения
 
@@ -55,11 +55,11 @@
 
 ### Гейт верификации (bench-verify)
 
-- [ ] Аггрегатный бюджет link-resolve: streaming GET + per-stage budget @owner:andrei @trigger:"этап link-resolve вышел за 5 мин на реальном прогоне ИЛИ отчёт с >20 ссылками"
+- [ ] Агрегатный бюджет link-resolve: streaming GET + per-stage budget @owner:andrei @trigger:"этап link-resolve вышел за 5 мин на реальном прогоне ИЛИ отчёт с >20 ссылками"
 
   Friction 12 матрицы закрыт **частично**. Maestro-уровень сделан (`timeout_seconds`
   верификатора через execution layer, тест в `test_command_verifier`), а внутри
-  `bench-verify` аггрегатного потолка нет: run 3 показал per-request стоимость 10 с, но
+  `bench-verify` агрегатного потолка нет: run 3 показал per-request стоимость 10 с, но
   суммарную стоимость этапа ничто не ограничивает. Нужны потоковый GET (не читать тело
   целиком) и бюджет на этап, а не только на запрос.
 
