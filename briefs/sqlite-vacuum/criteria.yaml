@@ -1,0 +1,25 @@
+schema_version: 1
+artifact: reports/sqlite-vacuum/result.md
+criteria:
+  - id: source-coverage
+    description: >-
+      Every material claim about VACUUM, VACUUM INTO, auto_vacuum modes,
+      freelist behavior, or WAL interaction carries an [Sn] citation marker
+      resolving to a primary sqlite.org source listed in the Sources section.
+  - id: strategy-completeness
+    description: >-
+      All three strategies from the brief (manual VACUUM incl. VACUUM INTO,
+      auto_vacuum FULL and INCREMENTAL, and the do-nothing freelist baseline)
+      are each analyzed for file/freelist effect, availability impact while
+      running, WAL interaction, and operational cost.
+  - id: synthesis
+    description: >-
+      Conclusions distinguish cited evidence from the author's inference;
+      inferences are explicitly flagged and never attributed to the
+      documentation.
+  - id: workload-recommendation
+    description: >-
+      The report ends with a concrete recommendation for the stated workload
+      (single-writer long-running orchestrator), including trigger/monitoring
+      guidance (e.g. freelist_count, file size vs page_count) and the
+      conditions under which the recommendation should be reconsidered.

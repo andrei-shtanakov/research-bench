@@ -58,34 +58,34 @@ domain:
       # racing the critic's own cap.
       timeout_seconds: 600
       error_retry_budget: 2
-    artifact: reports/sqlite-wal/result.md
+    artifact: reports/sqlite-vacuum/result.md
     rework_budget: 2
     verdict_schema_version: 2
     criteria:
       visibility: shared
-      source: briefs/sqlite-wal/criteria.yaml
-      sha256: 03f7593267e4aad9261f91c4e4be6c958eb95d6afc2e10d85634462d5820e0d5
+      source: briefs/sqlite-vacuum/criteria.yaml
+      sha256: 8ee8b2e65b198a1b7c6a37fc836a718d79daaef0a998e0f919a06ff3a4197a6a
   workspace:
     roles:
-      # Author authority ends at reports/sqlite-wal/**; verdicts leave the
+      # Author authority ends at reports/sqlite-vacuum/**; verdicts leave the
       # author's scope entirely (closes friction #2).
       author:
         write:
-          - "reports/sqlite-wal/**"
+          - "reports/sqlite-vacuum/**"
       verifier:
         write:
-          - "verdicts/sqlite-wal/**"
+          - "verdicts/sqlite-vacuum/**"
     read_only:
       - "briefs/**"
-    evidence_root: verdicts/sqlite-wal
+    evidence_root: verdicts/sqlite-vacuum
     expected_outputs:
       author:
-        - "reports/sqlite-wal/result.md"
+        - "reports/sqlite-vacuum/result.md"
       verification:
-        - "verdicts/sqlite-wal/**"
+        - "verdicts/sqlite-vacuum/**"
       delivery:
-        - "reports/sqlite-wal/result.md"
-        - "verdicts/sqlite-wal/**"
+        - "reports/sqlite-vacuum/result.md"
+        - "verdicts/sqlite-vacuum/**"
   delivery:
     local_merge: before_remote_pr
     remote: github_pr
@@ -94,14 +94,15 @@ domain:
     budget_usd: 1.0
 
 workstreams:
-  - id: sqlite-wal-report-v2
-    title: "Research report: SQLite WAL trade-offs (v2: independent benchmark)"
+  - id: sqlite-vacuum-report
+    title: "Research report: SQLite space reclamation (VACUUM / auto_vacuum)"
     description: |
-      Update the EXISTING reports/sqlite-wal/result.md so it satisfies ALL
-      acceptance criteria in briefs/sqlite-wal/criteria.yaml (read-only for
-      you), including the new independent-benchmark criterion. Keep the
-      existing structure and citations; add what is missing.
-      You are writing a research REPORT, not code.
+      Produce reports/sqlite-vacuum/result.md following
+      briefs/sqlite-vacuum/brief.md. Acceptance criteria:
+      briefs/sqlite-vacuum/criteria.yaml (read-only for you). You are
+      writing a research REPORT, not code. Organize the work as you see
+      fit — decomposing into subtasks (source collection, per-strategy
+      analysis, synthesis) is fine.
     scope:
-      - "reports/sqlite-wal/**"
+      - "reports/sqlite-vacuum/**"
     depends_on: []
