@@ -20,6 +20,20 @@
 
 ## Strategy 3 — Do nothing (freelist reuse)
 
+Doing nothing is a choice with a mechanism, a cost, and a failure mode: SQLite's own free-page bookkeeping absorbs the churn.
+
+**File & freelist.** Unused pages — pages that arise, for example, when information is deleted — are stored on the freelist and reused when additional pages are required {fileformat2}. That reuse is why a `DELETE` does not force the next insert to extend the file. It is also why the file does not get smaller: absent `auto_vacuum=FULL`, deleted data leaves behind "free" database pages so the file can be larger than strictly necessary, and `VACUUM` is what reclaims that space and reduces the file's size {lang_vacuum}. This strategy runs neither, so the file never shrinks on its own. The reserve is directly observable — `PRAGMA freelist_count` returns the number of unused pages in the database file, against `page_count` × `page_size` for the total {pragma}.
+
+**Availability.** Zero, and that is the whole case for the baseline: no maintenance operation, therefore no maintenance lock, no window to schedule, nothing that can be interrupted part-way. The only locking is what each ordinary transaction already takes, and under WAL readers do not block the writer and the writer does not block readers, with one writer at a time {wal}.
+
+**WAL.** Nothing reaches the write-ahead log except the transactions the application would have run anyway; reusing a freelist page happens inside an ordinary commit, not in a separate pass. WAL size therefore stays governed by ordinary commit size, and SQLite checkpoints automatically whenever a COMMIT takes the WAL to 1000 pages or more {wal}. No page addresses freelist reuse and WAL growth together; I infer the checkpoint cadence is simply unchanged by this choice.
+
+**Fragmentation.** Here the baseline pays. Frequent inserts, updates, and deletes can leave the file fragmented, with data for a single table or index scattered around it, and `VACUUM` is what makes each table and index largely contiguous again {lang_vacuum}. Declining that repair lets fragmentation accumulate for the life of the file, since freed pages return to new rows wherever they happen to sit. The documentation does not state the read cost of a given degree of fragmentation; my judgment is that this is gradual degradation rather than a cliff.
+
+**Operational cost & trigger.** Nothing triggers it, because there is no operation: no additional I/O, no duration to bound, no schedule. Temp disk is not applicable — nothing is rebuilt, so no temporary copy is created. The cost is instead a standing property of the file: freed pages are held for reuse rather than returned to the filesystem {fileformat2}, so the file ratchets to peak historical usage and stays there. That is the failure mode — a file permanently sized to the largest working set the orchestrator ever held, plus accumulated fragmentation, visible in `freelist_count` but unrecoverable without one of the other two strategies.
+
+The usual argument for the baseline deserves stating as inference, not fact: if deletes and inserts roughly balance, pages are recycled about as fast as they are freed and the file plateaus rather than growing without bound. Given this workload I infer that plateau is the likely outcome, but it is not a documented guarantee — no cited page bounds file size — and it fails exactly when churn stops being symmetric, as after a retention change or one bulk delete that strands pages later inserts never reclaim.
+
 ## Comparative synthesis
 
 ## Recommendation for this workload
