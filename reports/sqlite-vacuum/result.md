@@ -38,9 +38,31 @@ Same operation, different destination — and the difference falls almost entire
 
 ## Strategy 2 — auto_vacuum (FULL and INCREMENTAL)
 
+The two modes share one standing investment and nothing else; their reclamation behavior differs enough to treat them apart. Auto-vacuuming is possible only if the database stores extra information letting each page be traced backwards to its referrer, so it must be turned on before any tables are created and cannot be enabled or disabled afterwards {pragma}. Moving an existing database from `none` to either mode happens only by running `VACUUM`, and returning to `none` always requires `VACUUM` even on an empty database {pragma}; switching between `full` and `incremental` later is free, at any time {pragma}, and in WAL mode `auto_vacuum` is the one property `VACUUM` can still change {lang_vacuum}. That information lives in pointer-map (ptrmap) pages — extra pages inserted to make `auto_vacuum` and `incremental_vacuum` more efficient, holding child-to-parent back-links; the first is page 2, each carries J = U/5 five-byte entries covering the J pages after it, repeating through the file {fileformat2}. At the 4096-byte default page size {pragma} that is one ptrmap page per 820, about 0.1% of the file — arithmetic from the format rule, not a documented figure. I infer the standing cost that matters is not that space but the ptrmap upkeep every page relocation entails.
+
 ### auto_vacuum=FULL
 
+**File & freelist.** Freelist pages are moved to the end of the database file and the file is truncated to remove them at every transaction commit {pragma}, so the freelist is held near empty and space returns to the filesystem without a rebuild {lang_vacuum}.
+
+**Availability.** Nothing to schedule, so no maintenance lock and no window — the work happens inside commits the writer was already making {pragma}. No page prices that per-commit work; my judgment is that it is paid as added latency on the single writer's own commits, many imperceptible pauses instead of one long one, which is the shape this workload prefers.
+
+**WAL.** No cited page pairs `auto_vacuum` with WAL. Documented: under WAL a COMMIT can happen without ever writing to the original database, changes being appended to the log, and a checkpoint is what moves them back into the database {wal}. From those premises I infer the truncation cannot land at commit as the pragma's wording suggests — the page moves are appended like any other change and the file shrinks when a checkpoint transfers them, making reclamation checkpoint-paced. That is my inference, not a documented claim. Moved pages also enlarge commits, and SQLite checkpoints automatically at 1000 WAL pages {wal}; I infer somewhat more frequent checkpoints rather than a larger WAL peak.
+
+**Fragmentation.** Here the mode is actively negative: auto-vacuum only truncates freelist pages, does not defragment or repack pages the way `VACUUM` does, and because it moves pages within the file can actually make fragmentation worse {pragma}; nor does it compact partially filled pages {lang_vacuum}. Over months my judgment is that this is its real liability — the file stays small while its layout drifts, and only a rebuild repairs that.
+
+**Operational cost & trigger.** The trigger is automatic and cannot be deferred: every commit that frees pages {pragma}. Temp disk is not applicable — nothing is rebuilt, so no second copy exists; the roughly-2× transient belongs to `VACUUM` alone {lang_vacuum}. No page gives an I/O figure; I infer the cost tracks pages freed per transaction rather than database size, so small transactions each pay little while one bulk delete pays for all of it inside that commit.
+
 ### auto_vacuum=INCREMENTAL and PRAGMA incremental_vacuum
+
+**File & freelist.** The same bookkeeping is stored, but auto-vacuuming does not occur automatically at each commit as with `auto_vacuum=full`; the separate `incremental_vacuum` pragma must be invoked to cause it {pragma}. That pragma removes up to N pages from the freelist and truncates the file by the same amount; with fewer than N pages free, N below 1, or the argument omitted, the entire freelist is cleared, and it has no effect outside `auto_vacuum=incremental` or on an empty freelist {pragma}. Between calls the freelist accumulates as in the do-nothing baseline — countable with `freelist_count` {pragma} — and drains by an amount the caller chooses.
+
+**Availability.** No cited page states what lock a call takes or how long it runs. Documented is only the frame: WAL allows one writer at a time while readers neither block nor are blocked {wal}. My judgment is that a call occupies the write slot for its duration while readers continue, and that N is the availability knob — bounding pages per call bounds the pause. That makes this the only strategy here whose maintenance cost is tunable rather than dictated by database size.
+
+**WAL.** Again undocumented for this pairing. Premises: the moves and the truncation reach the file through ordinary transactions, appended to the WAL and transferred by a checkpoint {wal}, and WAL "does not work well for very large transactions" {wal}. I infer a large N behaves like one large transaction, the case WAL handles worst, while a small N keeps each drain inside ordinary commit size — a second reason to bound N, and neither reason is a documented recommendation.
+
+**Fragmentation.** Identical to `full`, from the same mechanism: no defragmentation, no repacking of partially filled pages, possibly worse fragmentation because pages move {pragma}{lang_vacuum}. Deferring the moves does not avoid them; my judgment is that it only batches them, so the drift is the same and merely arrives in bursts.
+
+**Operational cost & trigger.** The trigger is entirely the application's — nothing is reclaimed until `PRAGMA incremental_vacuum(N)` is invoked {pragma} — so reclamation can be aimed at a quiet moment, which is exactly what `full` cannot do. Temp disk is not applicable: nothing is rebuilt. Standing overhead is the ptrmap pages, as in `full`; what differs is that the marginal work is deferred to the call. No page gives a duration; I infer per-call cost is proportional to the pages released, which is what N bounds.
 
 ## Strategy 3 — Do nothing (freelist reuse)
 
