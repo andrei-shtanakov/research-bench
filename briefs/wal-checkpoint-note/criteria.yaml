@@ -1,0 +1,17 @@
+schema_version: 1
+artifact: reports/wal-checkpoint-note/result.md
+criteria:
+  - id: source-coverage
+    description: >-
+      Every material checkpoint claim carries an [Sn] citation; [S1] is the
+      operator mirror URL exactly as given in the brief and appears in the
+      Sources section.
+  - id: checkpoint-completeness
+    description: >-
+      The note covers what a checkpoint does, all four checkpoint modes
+      (PASSIVE/FULL/RESTART/TRUNCATE), and the starvation hazard under
+      continuously overlapping readers.
+  - id: synthesis
+    description: >-
+      Conclusions distinguish cited evidence from the author's inference;
+      inferences are explicitly flagged.

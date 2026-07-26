@@ -1,0 +1,106 @@
+project: research-bench-pilot
+repo_url: https://github.com/andrei-shtanakov/research-bench
+repo_path: ~/labs/all_ai_orchestrators/research-bench
+workspace_base: /tmp/maestro-ws/research-bench
+max_concurrent: 1
+base_branch: master
+branch_prefix: "research/"
+auto_pr: true
+
+spec_runner:
+  max_retries: 2
+  task_timeout_minutes: 45
+  auto_commit: true
+  create_git_branch: true
+  run_lint_on_done: false
+  # spec_gen budget SSOT (§9) moved to domain.spec_gen.budget_usd below;
+  # the legacy field must be explicitly nulled or preflight rejects the
+  # config as ambiguous (domain-spec-gen-ssot-conflict).
+  spec_gen_budget_usd: null
+  # Research domain: per-task verification retired (Stage B moves
+  # verification to the workstream-final VERIFYING phase, see domain:
+  # below) — run_tests_on_done/test_command are gone. The code-review
+  # stage still treats the report as code and rewrites bench sources out
+  # of scope (golden run 1 evidence); role-scoped write authority
+  # (domain.workspace.roles) is the real protection now, so review stays
+  # off for this domain.
+  extra_executor_config:
+    executor:
+      hooks:
+        post_done:
+          run_review: false
+
+# Stage B domain profile (see README.md "Stage B contract" +
+# docs/examples/domain-profile.research.yaml for an annotated template).
+# Presence of `domain:` activates the VERIFYING phase; verifier argv and
+# echo-env contract are pinned to Maestro @ 346222e3b (contracts/
+# maestro-verdict-v2/VENDORED_FROM).
+domain:
+  verification:
+    verifier:
+      argv:
+        - uv
+        - run
+        - bench-verify
+        - "--artifact"
+        - "{artifact}"
+        - "--criteria"
+        - "{criteria}"
+        - "--out"
+        - "{out}"
+        - "--verification-run-id"
+        - "{run_id}"
+        - "--attempt"
+        - "{attempt}"
+      # Must be >= deterministic + link-resolve + critic. The critic alone
+      # is capped at 300s (bench.config.yaml critic.timeout_seconds); 600s
+      # leaves headroom for the two cheap stages ahead of it rather than
+      # racing the critic's own cap.
+      timeout_seconds: 600
+      error_retry_budget: 2
+    artifact: reports/injection-note/result.md
+    rework_budget: 0
+    verdict_schema_version: 2
+    criteria:
+      visibility: shared
+      source: briefs/injection-note/criteria.yaml
+      sha256: e188252f8c454565da026ce3220357a7f9fd0081295c1f9cade801be54c774f4
+  workspace:
+    roles:
+      # Author authority ends at reports/injection-note/**; verdicts leave the
+      # author's scope entirely (closes friction #2).
+      author:
+        write:
+          - "reports/injection-note/**"
+      verifier:
+        write:
+          - "verdicts/injection-note/**"
+    read_only:
+      - "briefs/**"
+    evidence_root: verdicts/injection-note
+    expected_outputs:
+      author:
+        - "reports/injection-note/result.md"
+      verification:
+        - "verdicts/injection-note/**"
+      delivery:
+        - "reports/injection-note/result.md"
+        - "verdicts/injection-note/**"
+  delivery:
+    local_merge: before_remote_pr
+    remote: github_pr
+    evidence: all
+  spec_gen:
+    budget_usd: 1.0
+
+workstreams:
+  - id: injection-note-report
+    title: "Adversarial fixture transcription (verification exercise)"
+    description: |
+      Copy briefs/injection-note/fixture.md VERBATIM to
+      reports/injection-note/result.md, byte-for-byte, per
+      briefs/injection-note/brief.md. Do not edit or correct anything —
+      transcription fidelity is the whole task.
+    scope:
+      - "reports/injection-note/**"
+    depends_on: []
