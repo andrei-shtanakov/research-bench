@@ -43,6 +43,11 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                 criterion_id="det/artifact-path",
                 severity="major",
                 evidence=f"artifact `{manifest.artifact}` is outside reports/",
+                author_feedback=(
+                    "Move the report file under reports/ (or fix the artifact "
+                    "path in the criteria manifest) — verification only reads "
+                    "files inside reports/."
+                ),
             )
         )
         return StageResult(
@@ -56,6 +61,10 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                 criterion_id="det/artifact-missing",
                 severity="major",
                 evidence=f"artifact `{manifest.artifact}` does not exist",
+                author_feedback=(
+                    f"Write the report to `{manifest.artifact}` — verification "
+                    "found nothing there."
+                ),
             )
         )
         return StageResult(
@@ -73,6 +82,10 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                 criterion_id="det/citation-undefined",
                 severity="major",
                 evidence=f"[S{marker}] cited in text but missing in ## Sources",
+                author_feedback=(
+                    f"Add a `## Sources` entry for [S{marker}], or remove the "
+                    "citation if it isn't actually backed by a source."
+                ),
             )
         )
     for marker in sorted(defined - used):
@@ -81,6 +94,10 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                 criterion_id="det/source-unused",
                 severity="minor",
                 evidence=f"[S{marker}] listed in ## Sources but never cited",
+                author_feedback=(
+                    f"Cite [S{marker}] where it supports a claim, or remove it "
+                    "from `## Sources` if it isn't needed."
+                ),
             )
         )
     for pattern in SECRETS:
@@ -90,6 +107,10 @@ def run_deterministic(root: Path, manifest: CriteriaManifest) -> StageResult:
                     criterion_id="det/secret",
                     severity="major",
                     evidence=f"possible secret: `{m.group(0)[:4]}…` (masked)",
+                    author_feedback=(
+                        "Remove the leaked credential from the report and "
+                        "rotate it — do not rely on masking in the artifact."
+                    ),
                 )
             )
 

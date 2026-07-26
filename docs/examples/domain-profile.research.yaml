@@ -1,0 +1,128 @@
+# Canonical example: a Stage B `domain:` profile for a research-report
+# workstream, annotated field-by-field. This is NOT consumed by any code —
+# it's documentation. See `project.yaml` at the repo root for the live
+# profile actually used by `maestro orchestrate`, and README.md's
+# "Stage B contract" section for the invocation/echo-env contract this
+# depends on.
+#
+# Schema SSOT: `maestro/domain/profile.py` (DomainProfile) in the Maestro
+# repo, vendored at commit 346222e3b (contracts/maestro-verdict-v2/
+# VENDORED_FROM). Validate any edit against the real schema, not against
+# this comment:
+#
+#   cd ../Maestro && uv run maestro validate ../research-bench/project.yaml
+#
+# Substitute your own topic/report slug for every "topic-x" below.
+
+domain:
+  # One Protocol section: how Maestro invokes the verifier subprocess and
+  # what workstream-final policy governs verification (§9 of the design).
+  verification:
+    verifier:
+      # Argv template. ONLY the closed placeholder set is allowed:
+      # {artifact} {criteria} {out} {run_id} {attempt} — an unknown
+      # placeholder name is a preflight-hard error. No shell is ever
+      # involved (argv list, not a shell string).
+      argv:
+        - uv
+        - run
+        - bench-verify
+        - "--artifact"
+        - "{artifact}"
+        - "--criteria"
+        - "{criteria}"
+        - "--out"
+        - "{out}"
+        - "--verification-run-id"
+        - "{run_id}"
+        - "--attempt"
+        - "{attempt}"
+      # Wall-clock budget for ONE verifier invocation. Must cover every
+      # stage the verifier runs internally (e.g. this repo's bench-verify:
+      # deterministic checks -> link-resolve -> LLM critic) — size it above
+      # the sum of those stage budgets, not just the slowest one.
+      timeout_seconds: 600
+      # How many consecutive protocol/infra ERRORs (not content FAILs) the
+      # verifier may hit before the workstream gives up as FAILED.
+      error_retry_budget: 2
+    # Worktree-relative path to the artifact under verification. Must fall
+    # inside roles.author.write below (config-time contradiction otherwise:
+    # the author could never produce it).
+    artifact: reports/topic-x/result.md
+    # How many author rework cycles (FAIL -> respawn author -> reverify)
+    # are allowed before the workstream escalates to NEEDS_REVIEW.
+    rework_budget: 2
+    # Pin to the vendored verdict document schema version this profile
+    # expects the verifier to emit. Only `2` exists today.
+    verdict_schema_version: 2
+    criteria:
+      # "shared": the rubric source is a normal repo-relative path,
+      # visible to the author like any other file (this example).
+      #
+      # "verifier_only": the rubric bytes stay hidden from the author; the
+      # `source` string itself is still visible, but it must resolve
+      # OUTSIDE the repo (an operator-side path/URI) — never a rubric
+      # committed to this repo (preflight rejects verifier_only sources
+      # that resolve inside the repo). It ALSO requires every participating
+      # workstream's author backend to be Docker-isolated (capability
+      # gate) — the plaintext host filesystem is otherwise readable by the
+      # author, defeating the hiding guarantee. Never wire a real rubric
+      # here as an example; if you adopt verifier_only, replace the line
+      # below with your own operator-managed path, e.g.:
+      #   source: /var/lib/maestro/rubrics/topic-x.yaml   # PLACEHOLDER ONLY
+      visibility: shared
+      source: briefs/topic-x/criteria.yaml
+      # sha256 of the criteria file's bytes at the pin above. Recompute
+      # whenever criteria.yaml changes: `shasum -a 256 <path>`.
+      sha256: "000000000000000000000000000000000000000000000000000000000000000a"
+
+  # Declarative workspace policy: who may write where, and what the
+  # verifier's evidence directory is. Purely declarative — Maestro's own
+  # scope-gate enforces it, this section doesn't run anything.
+  workspace:
+    roles:
+      # Author authority is bounded to the report itself. Verdicts are
+      # NOT in this scope — the author cannot see or tamper with them.
+      author:
+        write:
+          - "reports/topic-x/**"
+      # Verifier's own write scope. Must be disjoint from roles.author.write
+      # (preflight rejects any overlap) and must contain evidence_root.
+      verifier:
+        write:
+          - "verdicts/topic-x/**"
+    # Paths every role may read but nobody but the operator may write
+    # (e.g. the rubric itself, when visibility: shared).
+    read_only:
+      - "briefs/**"
+    # Where the verifier's append-only evidence ledger lives. Must be
+    # contained by roles.verifier.write.
+    evidence_root: verdicts/topic-x
+    # Declares, per phase, which paths are expected to exist/change even
+    # though no workstream `scope:` glob currently matches them yet (e.g.
+    # verdict files that don't exist until the first verification run).
+    # This silences the `scope-no-match` preflight warning for genuinely
+    # expected future paths instead of masking real typos.
+    expected_outputs:
+      author:
+        - "reports/topic-x/result.md"
+      verification:
+        - "verdicts/topic-x/**"
+      delivery:
+        - "reports/topic-x/result.md"
+        - "verdicts/topic-x/**"
+
+  # Declare-and-validate delivery semantics (§8): today there is exactly
+  # one supported combination, so this block reads as a fixed contract,
+  # not a menu — future values would be added, not swapped.
+  delivery:
+    local_merge: before_remote_pr
+    remote: github_pr
+    evidence: all
+
+  # Domain-owned spec-generation budget. When set, it is the SINGLE
+  # source of truth: `spec_runner.spec_gen_budget_usd` in the same
+  # project.yaml MUST be explicitly `null`, or preflight rejects the
+  # config as ambiguous (domain-spec-gen-ssot-conflict).
+  spec_gen:
+    budget_usd: 1.0

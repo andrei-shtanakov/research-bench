@@ -12,17 +12,86 @@ spec_runner:
   task_timeout_minutes: 45
   auto_commit: true
   create_git_branch: true
-  run_tests_on_done: true
-  test_command: "uv run bench-verify --brief briefs/sqlite-wal"
   run_lint_on_done: false
-  # Research domain: the code-review stage treats the report as code and
-  # rewrites bench sources out of scope (golden run 1 evidence). The scope
-  # gate stays the real protection; the reviewer is simply wrong-domain here.
+  # spec_gen budget SSOT (§9) moved to domain.spec_gen.budget_usd below;
+  # the legacy field must be explicitly nulled or preflight rejects the
+  # config as ambiguous (domain-spec-gen-ssot-conflict).
+  spec_gen_budget_usd: null
+  # Research domain: per-task verification retired (Stage B moves
+  # verification to the workstream-final VERIFYING phase, see domain:
+  # below) — run_tests_on_done/test_command are gone. The code-review
+  # stage still treats the report as code and rewrites bench sources out
+  # of scope (golden run 1 evidence); role-scoped write authority
+  # (domain.workspace.roles) is the real protection now, so review stays
+  # off for this domain.
   extra_executor_config:
     executor:
       hooks:
         post_done:
           run_review: false
+
+# Stage B domain profile (see README.md "Stage B contract" +
+# docs/examples/domain-profile.research.yaml for an annotated template).
+# Presence of `domain:` activates the VERIFYING phase; verifier argv and
+# echo-env contract are pinned to Maestro @ 346222e3b (contracts/
+# maestro-verdict-v2/VENDORED_FROM).
+domain:
+  verification:
+    verifier:
+      argv:
+        - uv
+        - run
+        - bench-verify
+        - "--artifact"
+        - "{artifact}"
+        - "--criteria"
+        - "{criteria}"
+        - "--out"
+        - "{out}"
+        - "--verification-run-id"
+        - "{run_id}"
+        - "--attempt"
+        - "{attempt}"
+      # Must be >= deterministic + link-resolve + critic. The critic alone
+      # is capped at 300s (bench.config.yaml critic.timeout_seconds); 600s
+      # leaves headroom for the two cheap stages ahead of it rather than
+      # racing the critic's own cap.
+      timeout_seconds: 600
+      error_retry_budget: 2
+    artifact: reports/sqlite-wal/result.md
+    rework_budget: 2
+    verdict_schema_version: 2
+    criteria:
+      visibility: shared
+      source: briefs/sqlite-wal/criteria.yaml
+      sha256: 03f7593267e4aad9261f91c4e4be6c958eb95d6afc2e10d85634462d5820e0d5
+  workspace:
+    roles:
+      # Author authority ends at reports/sqlite-wal/**; verdicts leave the
+      # author's scope entirely (closes friction #2).
+      author:
+        write:
+          - "reports/sqlite-wal/**"
+      verifier:
+        write:
+          - "verdicts/sqlite-wal/**"
+    read_only:
+      - "briefs/**"
+    evidence_root: verdicts/sqlite-wal
+    expected_outputs:
+      author:
+        - "reports/sqlite-wal/result.md"
+      verification:
+        - "verdicts/sqlite-wal/**"
+      delivery:
+        - "reports/sqlite-wal/result.md"
+        - "verdicts/sqlite-wal/**"
+  delivery:
+    local_merge: before_remote_pr
+    remote: github_pr
+    evidence: all
+  spec_gen:
+    budget_usd: 1.0
 
 workstreams:
   - id: sqlite-wal-report-v2
@@ -32,13 +101,7 @@ workstreams:
       acceptance criteria in briefs/sqlite-wal/criteria.yaml (read-only for
       you), including the new independent-benchmark criterion. Keep the
       existing structure and citations; add what is missing.
-      IMPORTANT: plan this as EXACTLY ONE executable task.
-      Do not split into multiple tasks.
-      You are writing a research REPORT, not code. Never modify src/**,
-      tests/**, pyproject.toml, bench.config.yaml, prompts/**, briefs/**
-      or spec/plugins/** — verification tooling is off-limits. Write only
-      reports/sqlite-wal/result.md.
+      You are writing a research REPORT, not code.
     scope:
       - "reports/sqlite-wal/**"
-      - "verdicts/sqlite-wal/**"
     depends_on: []
