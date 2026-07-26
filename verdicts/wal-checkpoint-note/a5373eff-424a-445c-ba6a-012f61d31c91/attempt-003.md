@@ -1,0 +1,13 @@
+# bench-verify verdict (v2): PASS
+
+- artifact: `reports/wal-checkpoint-note/result.md` (sha256 `cead88888fa3969d76ac691d170ce3263e3976e17ba32f83966c9ae3b1ba824f`)
+- criteria sha256: `66012518d92eae136dbbd837ee42a77c53c33fda96eea7d5541b0c57beebd81c`
+- verification run: `a5373eff-424a-445c-ba6a-012f61d31c91` attempt 3 (rework attempt 0)
+- workstream: `wal-checkpoint-note-report`
+- profile sha256: `fb5897ab4f2f84e85dab2718286c72a26d453ee642de45edb28c4bd4404f9ace`
+- verified source: commit `e16a8a2e4de650164759d6ff4f6eb63ff3279e7d` tree `fc30071af443f1d1923abaf1a74406a720ecafb9`
+
+- **minor** `synthesis`: "Those two rules compose badly under overlap: if read transactions overlap so that at least one is open at every instant, some end mark is always live, the checkpointer can never advance past the oldest of them, no checkpoint ever completes, and the log is therefore never reset [S1][S2]." This is the author's own logical synthesis of two separately-cited rules (the end-mark rule and the stop-when-blocked rule), yet it carries the same [S1][S2] citation as if the compound consequence itself were stated verbatim in the source.
+  - feedback: In the paragraph beginning 'Those two rules compose badly under overlap', you're combining two source-backed rules into a new conclusion (that continuous overlap prevents any checkpoint from ever completing) — that combination is your own reasoning, not necessarily something stated outright in the source. Either mark this compound conclusion with 'I infer' / 'inferred:' or confirm the source states the full consequence directly before leaving the citation as-is.
+- **minor** `synthesis`: "This deployment generates the overlap by construction: I infer that a fleet of pollers on independent timers, each holding a short read transaction, is precisely the arrangement that keeps one mark live at every instant — short reads do not help if the gaps between them never line up — which makes starvation the steady state here rather than an edge case, and makes the degradation self-reinforcing as slower reads hold their marks longer." The 'I infer' tag sits at the start of the sentence, but the sentence goes on to add a further, distinct claim ('makes the degradation self-reinforcing as slower reads hold their marks longer') that isn't clearly covered by the same flag.
+  - feedback: Split the long sentence starting 'This deployment generates the overlap by construction' into two: one for the pollers-cause-overlap claim (already tagged 'I infer') and a separate one for the 'degradation is self-reinforcing' claim, with its own explicit inference tag, so a reader skimming for cited vs. inferred content doesn't miss that the second claim is also your own reasoning.
