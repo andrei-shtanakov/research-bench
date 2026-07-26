@@ -12,7 +12,11 @@
 
 ## What a checkpoint does
 
-<!-- line budget: 7 — page transfer, log reset/reuse, autocheckpoint default -->
+**Page transfer.** A checkpoint takes the committed content accumulated in the `-wal` file and transfers it back into the main database file, resuming from where the previous checkpoint stopped rather than starting over [S1][S2].
+
+**Reset and reuse.** A checkpoint does not normally shrink the log. Once its whole contents have been transferred and synced and no reader is still using it, the next writer rewinds the log and begins overwriting it from the beginning — its space is reused rather than grown, which is the mechanism that keeps the file from growing without bound [S1][S2]. This runs on its own by default: a COMMIT that takes the log to 1000 pages or more triggers a checkpoint, and `PRAGMA wal_autocheckpoint` is where that threshold is raised, lowered, or turned off [S1][S2][S4].
+
+**Why this deployment cares.** A reader looks in the log first for every page it needs, falling back to the main file only if no copy is there, so maximizing read performance means keeping the log small and checkpointing often, while amortizing checkpoint cost over more writes means letting it grow [S1][S2]. I infer that a fleet of pollers reading continuously against a single small-transaction writer puts this orchestrator on the read side of that tradeoff, making log size the thing to hold down.
 
 ## The four modes
 
