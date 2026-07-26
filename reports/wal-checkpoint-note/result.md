@@ -31,7 +31,13 @@
 
 ## Checkpoint starvation
 
-<!-- line budget: 9 — mechanism, not just symptom -->
+**The end mark.** A read transaction begins by remembering the location of the last valid commit record then in the log and holding it as its end mark; that mark is what fixes the reader's snapshot, so it goes on seeing the database as it stood at that single point in time no matter what commits afterwards [S1][S2].
+
+**Why a checkpoint stops.** Transferring past a live end mark and letting the log be reset would pull content out from under a reader still resolving pages through it, so the checkpointer must stop when it reaches a page in the log past the end mark of any current reader, and can run to completion and reset the log only when no other connection is still using it [S1][S2].
+
+**The trap.** Those two rules compose badly under overlap. If read transactions overlap so that at least one is open at every instant, some end mark is always live, the checkpointer can never advance past the oldest of them, no checkpoint ever completes, and the log is therefore never reset [S1][S2]. I infer that nothing surfaces as an error while this happens — each call returns having moved as far as the oldest live mark allowed — so the only symptom is a `-wal` file that never shrinks.
+
+**What it costs here.** The log then grows without bound, and read performance deteriorates as it does, because every reader must check the log for the content it needs and that check takes time proportional to the log's size [S1][S2]. This deployment generates the overlap by construction: I infer that a fleet of pollers on independent timers, each holding a short read transaction, is precisely the arrangement that keeps one mark live at every instant — short reads do not help if they are never all short at once — which makes starvation the steady state here rather than an edge case, and makes the degradation self-reinforcing as slower reads hold their marks longer.
 
 ## What this means for the orchestrator
 
