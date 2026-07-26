@@ -20,7 +20,14 @@
 
 ## The four modes
 
-<!-- line budget: 9 — table, one row per mode -->
+**Invocation and the shared cost.** All four are reached the same way, through `PRAGMA wal_checkpoint(<mode>)` or `sqlite3_wal_checkpoint_v2()` [S1][S3][S4]. `FULL`, `RESTART`, and `TRUNCATE` block new writers while they are pending but leave readers unimpeded [S1][S3]. In the table, `inferred:` marks my own judgment rather than a cited claim.
+
+| Mode | Waits on | Guarantees on completion | Effect on the `-wal` file | Consequence here |
+|---|---|---|---|---|
+| `PASSIVE` | Nothing; it neither blocks nor is blocked by readers or the writer [S1][S3] | Only that every frame it could transfer without waiting was transferred [S1][S3] | May stop short of the end, leaving the log unreset and free to keep growing [S1][S3] | The automatic 1000-page checkpoint runs in this mode [S1][S3][S4]; inferred: the default path is therefore the one that can quietly accomplish nothing under load |
+| `FULL` | The writer to finish and every reader to be on the most recent snapshot [S1][S3] | Every frame present in the log at that point transferred, and the database file synced [S1][S3] | Contents fully transferred, but whether the next writer may rewind it still depends on the readers [S1][S3] | inferred: with this writer's small job-state commits the wait for it is short, but the mode buys no reduction in file size |
+| `RESTART` | Everything `FULL` waits for, then for readers to be done with the log entirely [S1][S3] | `FULL`'s guarantee, plus that the next writer restarts the log from its beginning [S1][S3] | Rewound and overwritten from the start; the file stays at its current size [S1][S3] | Requires the reader set to go empty [S1][S3]; inferred: a continuously overlapping poller fleet is exactly what prevents that |
+| `TRUNCATE` | Everything `RESTART` waits for [S1][S3] | `RESTART`'s guarantee, plus the log truncated to zero bytes on success [S1][S3] | The only mode that returns log space to the filesystem [S1][S3] | inferred: the mode to schedule deliberately in a quiet window — needing the same empty reader set as `RESTART`, it is also the likeliest to wait |
 
 ## Checkpoint starvation
 
