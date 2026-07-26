@@ -106,6 +106,18 @@ The five options differ in how much space they return, but they separate more sh
 
 ### What to monitor and when to act
 
+Three signals say whether the freelist is held in check, one says whether each drain worked, one gates the fallback. `inferred:` marks a value that is my judgment; no cited page states any threshold.
+
+| Signal | Healthy | What triggers action | Action |
+|---|---|---|---|
+| `PRAGMA freelist_count`, the unused pages in the file {pragma} — read weekly for its trend, not once for its value | A sawtooth: it climbs between drains, each drain returns it near the same floor | inferred: the post-drain floor rising in three consecutive weekly readings — a trend, not a plateau | inferred: shorten the drain interval or raise `N`; if the floor still climbs, one out-of-band `VACUUM INTO` plus swap |
+| Free ratio `freelist_count / page_count` {pragma} — the same reserve normalized, so it stays comparable as the database grows | inferred: below ~10% when each drain is due | inferred: above ~25% at two consecutive scheduled drains | inferred: drain early, with the argument to `PRAGMA incremental_vacuum` omitted, which clears the entire freelist {pragma} instead of `N` pages |
+| On-disk size of the main database file against `page_count` × `page_size` {pragma} — whether truncation reached the filesystem | The two track each other; the recoverable gap is `freelist_count` × `page_size` {pragma} and shrinks at each drain | On-disk size still above `page_count` × `page_size` after a drain, when the pragma is documented to truncate the file by the pages it removes {pragma} | Treat the drain as ineffective rather than slow, and confirm the mode: the pragma does nothing outside `auto_vacuum=incremental` {pragma} |
+| Per-run outcome of `incremental_vacuum` {pragma} — duration, and pages released as `freelist_count` before minus after {pragma} | Each run releases close to its `N` and finishes inside the quiet window; duration flat run over run | Duration drifting upward at unchanged `N`; or releases short of `N` while the free ratio is high — short releases are documented when fewer than `N` pages are free {pragma}, so they signal nothing on a near-empty freelist | inferred: lower `N` until a run fits the window, and drain more often — the pause is bounded by `N`, so cadence absorbs what `N` gives up |
+| Free space on the filesystem holding the temporary file, chosen by the documented search order {tempfiles} | Above twice the database size, the transient an in-place rebuild needs {lang_vacuum} | That headroom lost, or the search order resolving somewhere unexpected {tempfiles} | In-place `VACUUM` is off the table until it returns; the fallback is `VACUUM INTO` aimed at another filesystem, needing one compacted copy rather than ~2× {lang_vacuum} |
+
+The numbers are mine, and the reasoning belongs with them because the documentation supplies none. **~10% and ~25%.** No page states a free-page budget; I chose a band wide enough that ordinary churn does not wake anyone and tight enough that slack stays a fraction of live content rather than a multiple — at 25% the file is a third larger than the data in it. **`N`.** It follows from the window, not the file: time one run at a deliberately small `N` — 1,000 pages is about 4 MB at the 4096-byte default page size {pragma} — then scale to what the observed rate fits inside the quiet window, with headroom. This is my inference, not a documented claim; the only documented bound is that `N` caps the pages removed per call {pragma}. **Three readings.** Two cannot separate a rising floor from a plateau, and against a months-long file a monthly cadence is too slow to catch the trend before it costs real disk.
+
 ### When to reconsider
 
 ## Sources
