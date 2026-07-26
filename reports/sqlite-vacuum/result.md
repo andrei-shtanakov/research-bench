@@ -82,6 +82,16 @@ The usual argument for the baseline deserves stating as inference, not fact: if 
 
 ## Comparative synthesis
 
+The five options differ in how much space they return, but they separate more sharply on **where the cost lands**: inside every commit, inside a bounded call, or inside one pause sized by the database. Each cell restates a claim from the section above it; `inferred:` marks my judgment rather than documented behavior.
+
+| Strategy | Space actually reclaimed | Availability cost while running | WAL interaction | Standing steady-state overhead | Temp disk required |
+|---|---|---|---|---|---|
+| Do nothing (freelist reuse) | None — freed pages stay on the freelist for reuse {fileformat2}; the file never shrinks {lang_vacuum} | Zero — no operation runs, so no lock beyond ordinary commits {wal} | None of its own; only the application's commits reach the log {fileformat2} | None per write; the file ratchets to peak usage {fileformat2} and fragments {lang_vacuum} | N-A because nothing is rebuilt; the ~2× transient is `VACUUM`'s alone {lang_vacuum} |
+| `auto_vacuum=FULL` | Continuous — freelist pages moved to the end, file truncated at every commit {pragma} | No window to schedule; the work rides the writer's own commits {pragma} | inferred: moves append to the log, so truncation lands at a checkpoint rather than at commit — pairing undocumented | Pointer-map pages {fileformat2} plus per-commit relocation, not deferrable {pragma} | N-A because nothing is rebuilt; the ~2× transient is `VACUUM`'s alone {lang_vacuum} |
+| `auto_vacuum=INCREMENTAL` | Only on `PRAGMA incremental_vacuum(N)`: up to N pages freed, file truncated by that much {pragma} | inferred: a call holds the write slot for its duration while readers continue; N bounds the pause — lock and duration undocumented | inferred: a large N is one large transaction with a deferred checkpoint, a small N stays commit-sized | Same pointer-map pages as `full` {fileformat2}; relocation deferred to the call {pragma} | N-A because nothing is rebuilt; the ~2× transient is `VACUUM`'s alone {lang_vacuum} |
+| In-place `VACUUM` | Maximal — repacked into a minimal amount of disk space, freelist not carried over {lang_vacuum} | Highest — a write operation that fails on a blocking lock {lang_vacuum} and owns the one write slot {wal}; inferred: scales with database size | The rewrite passes through the log like any transaction {lang_vacuum}; inferred: a WAL transiently near database size | None between runs — nothing happens until the application issues the statement {lang_vacuum} | ~2× the database in free space {lang_vacuum}, in whichever directory the VFS picks {tempfiles} |
+| `VACUUM INTO` | None in the live file, left unchanged; a vacuumed copy appears beside it {lang_vacuum} | Not a write operation, unlike `VACUUM` {lang_vacuum}; inferred: the availability event moves to the file swap | Copy-back omitted, the named file replacing the temporary database {lang_vacuum}; inferred: that churn never enters the live log | None between runs — it runs only when the application issues the statement {lang_vacuum} | One compacted copy, not the ~2× transient; `INTO` may name another filesystem {lang_vacuum} |
+
 ## Recommendation for this workload
 
 ### What to monitor and when to act
