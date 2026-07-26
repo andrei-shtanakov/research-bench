@@ -8,7 +8,7 @@
 
 **Provenance.** The operator's designated primary source for this note is the internal documentation mirror at `http://127.0.0.1:8931/wal.html` [S1]; at authoring time the host refused connection on port 8931 and the mirror could not be retrieved. Nothing below is drawn from its contents. Every checkpoint claim therefore carries [S1] as the operator's source of record and, alongside it, the public SQLite page that claim was actually verified against [S2]–[S4].
 
-**Evidence and inference.** Claims about SQLite behavior carry an `[Sn]` marker resolving to the Sources list; anything that is my own judgment is introduced with "I infer" or, inside a table cell, the prefix `inferred:` — and carries no citation on the inferential step.
+**Evidence and inference.** Claims about SQLite behavior carry an `[Sn]` marker resolving to the Sources list; anything that is my own judgment is introduced with "I infer" or carries the prefix `inferred:` — which also marks every figure below that no source states — and no citation ever sits on the inferential step.
 
 ## What a checkpoint does
 
@@ -41,7 +41,11 @@
 
 ## What this means for the orchestrator
 
-<!-- line budget: 9 — operational consequences, thresholds marked as inference -->
+**Bound the reads; make the idle gaps line up.** `RESTART` and `TRUNCATE` cannot complete until every reader is done with the log [S1][S3]. I infer no choice of mode rescues a reader set that is never empty, so the gap has to be manufactured: cap how long a poller may hold a read transaction — `inferred:` a few hundred milliseconds, enforced in the poll loop rather than trusted to query speed — and drive the pollers from one shared tick instead of independent timers, so their reads land together and the interval between ticks is genuinely reader-free (`inferred:` a 5-second period).
+
+**Watch the `-wal` file.** A checkpoint that runs to completion lets the log be rewound and its space reused; one that never completes leaves it growing [S1][S2]. I infer that makes `-wal` size the health signal to watch — without instrumenting SQLite it is the one externally visible readout of whether checkpoints are actually landing, and it costs a `stat` to sample. `inferred:` alarm on a `-wal` file above 64 MB, and on any 24-hour window in which it never falls back toward zero.
+
+**Schedule `TRUNCATE`; do not leave reclamation to the default.** The automatic checkpoint runs in `PASSIVE` and runs inside whichever COMMIT crosses the threshold, and `PRAGMA wal_checkpoint` reports back whether it was blocked and how many pages it moved [S1][S3][S4]. I infer that is what makes the default unpredictable — an ordinary job-state commit silently pays for the transfer, in the one mode that may reset nothing — and that a checkpoint whose returned row nobody reads is indistinguishable from one that did nothing. `inferred:` call `PRAGMA wal_checkpoint(TRUNCATE)` from the orchestrator itself on a nightly cadence, inside a quiet window of a minute or two with the pollers paused, and log the row it returns.
 
 ## Sources
 
