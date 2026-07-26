@@ -52,7 +52,7 @@ Same pointer-map investment and fragmentation liability as `full` — pages move
 
 **File & freelist.** Auto-vacuuming does not occur at each commit as with `auto_vacuum=full`; the `incremental_vacuum` pragma must be invoked [S2]. It removes up to N freelist pages and truncates the file by that amount, clears the whole freelist when N is omitted or below 1, and does nothing outside `auto_vacuum=incremental` or on an empty freelist [S2]. Between calls it accumulates.
 
-**Availability & operational cost.** No cited page states the lock a call takes or its duration; documented is only WAL's one writer with readers neither blocking nor blocked [S4]. I infer a call holds the write slot while readers continue, at a cost proportional to the pages released — so N is the availability knob, the only tunable pause here. Nothing is reclaimed until invoked [S2], letting it be timed for a quiet moment; temp disk is N-A [S1].
+**Availability & operational cost.** No cited page states the lock a call takes or its duration; documented is only WAL's one writer with readers neither blocking nor blocked [S4]. I infer a call holds the write slot while readers continue, at a cost proportional to the pages released — so N is the availability knob, the only tunable pause here. Nothing is reclaimed until invoked [S2], letting it be timed for a quiet moment; temp disk is N-A, nothing being rebuilt [S1].
 
 **WAL.** No cited page pairs `incremental_vacuum` with WAL either. The moves and truncation reach the file through ordinary transactions transferred by a checkpoint, and WAL "does not work well for very large transactions" [S4]. I infer a large N behaves like the whole-database rewrite, checkpoint deferred, a small N stays commit-sized — a second reason to bound it.
 
@@ -97,8 +97,8 @@ Three signals track the freelist, one tracks whether each drain worked, one gate
 | Signal | Healthy | What triggers action | Action |
 |---|---|---|---|
 | `PRAGMA freelist_count` [S2], read weekly for trend | inferred: a sawtooth returning near the same floor | inferred: the post-drain floor rising in three consecutive readings | inferred: shorten the interval or raise `N`, else `VACUUM INTO` plus swap |
-| Free ratio `freelist_count / page_count` [S2] | inferred: below ~10% when a drain is due | inferred: above ~25% at two consecutive drains | inferred: drain early, omitting the argument, clearing the whole freelist [S2] |
-| On-disk size against `page_count` × `page_size` [S2] | inferred: the two track, the gap being `freelist_count` × `page_size` [S2] | Unchanged after a drain, though the pragma truncates [S2] | inferred: the drain is ineffective; the pragma needs `auto_vacuum=incremental` [S2] |
+| Free ratio `freelist_count / page_count` [S2] | inferred: below ~10% when a drain is due | inferred: above ~25% at two consecutive drains | Omitting the argument clears the whole freelist [S2]; inferred: drain early |
+| On-disk size against `page_count` × `page_size` [S2] | The gap is `freelist_count` × `page_size` [S2]; inferred: the two track | Unchanged after a drain, though the pragma truncates [S2] | The pragma needs `auto_vacuum=incremental` [S2]; inferred: the drain is ineffective |
 | Per-run duration and pages released, `freelist_count` before minus after [S2] | inferred: each run releases near its `N` inside the window | Duration drifting upward at unchanged `N`; short releases are documented below `N` free pages [S2] | inferred: lower `N` until a run fits, and drain more often |
 | Free space where the temporary file lands [S5] | Above twice the database size, the transient a rebuild needs [S1] | That headroom lost, or the search order resolving unexpectedly [S5] | In-place `VACUUM` unavailable; fall back to `VACUUM INTO` elsewhere [S1] |
 
