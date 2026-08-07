@@ -8,8 +8,9 @@
 > `../_cowork_output/status/` (dev-only, рантайм их никогда не читает).
 > Контракт со Stage B: `README.md` → «Stage B contract»; закрытия: `docs/stage-b-closure-matrix.md`.
 >
-> Открытые пункты размечены инлайн-тегами `@owner:` / `@blocked_by:` / `@trigger:` по
-> формату из `../_cowork_output/2026-07-26-plan-fields-and-todo-coverage-handoff.md` §3.
+> Открытые пункты размечены plan-fields v2 инлайн-тегами `@owner:` / `@blocked_by:` /
+> `@trigger:` / `@id:`. Для `@owner:` каноничны `github:<login>`,
+> `github-team:<org>/<team>`, `repo:<manifest-key>` и `TBD`; bare handle/role — legacy.
 > Теги опциональны и исключены из ключа идентичности пункта в Robin (robin-runtime#27);
 > отсутствие тега значит «неизвестно» — выдумывать значение не надо.
 >
@@ -47,7 +48,8 @@
   следующим циклом авторинга — см. соответствующий чекбокс.
 - Пункты уровня команды — сюда. Микрошаги реализации — в `docs/plans/` (Robin их
   намеренно не читает) и в описания PR.
-- Инлайн-теги `@owner:` / `@blocked_by:` / `@trigger:` — формат из handoff §3, все опциональны.
+- Инлайн-теги `@owner:` / `@blocked_by:` / `@trigger:` / `@id:` используют
+  plan-fields v2; все опциональны.
 
 ---
 
@@ -55,7 +57,7 @@
 
 ### Гейт верификации (bench-verify)
 
-- [ ] Агрегатный бюджет link-resolve: streaming GET + per-stage budget @owner:andrei @trigger:"этап link-resolve вышел за 5 мин на реальном прогоне ИЛИ отчёт с >20 ссылками"
+- [ ] Агрегатный бюджет link-resolve: streaming GET + per-stage budget @owner:github:andrei-shtanakov @trigger:"этап link-resolve вышел за 5 мин на реальном прогоне ИЛИ отчёт с >20 ссылками"
 
   Friction 12 матрицы закрыт **частично**. Maestro-уровень сделан (`timeout_seconds`
   верификатора через execution layer, тест в `test_command_verifier`), а внутри
@@ -63,14 +65,14 @@
   суммарную стоимость этапа ничто не ограничивает. Нужны потоковый GET (не читать тело
   целиком) и бюджет на этап, а не только на запрос.
 
-- [ ] Golden run 2: доказать verifier-only рубрику живым прогоном @owner:andrei @blocked_by:operator-host#docker-runtime @trigger:"на хосте оператора появился рабочий docker"
+- [ ] Golden run 2: доказать verifier-only рубрику живым прогоном @owner:github:andrei-shtanakov @blocked_by:operator-host#docker-runtime @trigger:"на хосте оператора появился рабочий docker"
 
   Friction 7 — единственный из 13, где механизм сдан, а live-доказательства нет.
   Проверяется: location-based `verifier_only` + capability-gate, и что детерминированный
   addendum отдаёт автору **только** `severity` + `author_feedback`, никогда
   `criterion_id`/`evidence`/хеши. Тесты на исключения есть; не хватает прогона.
 
-- [ ] Добавить `pyrefly check` в CI @owner:andrei
+- [ ] Добавить `pyrefly check` в CI @owner:github:andrei-shtanakov
 
   Pyrefly настроен (`[tool.pyrefly]` в `pyproject.toml`, в dev-зависимостях) и на
   2026-07-26 чист — 0 errors, 9 suppressed. Но `.github/workflows/ci.yml` гоняет только
@@ -81,7 +83,7 @@
 
 ### Отчёты и авторинг
 
-- [ ] Полировка двух synthesis-minor в `reports/wal-checkpoint-note/result.md` @owner:andrei @trigger:"следующий цикл авторинга по этому отчёту"
+- [ ] Полировка двух synthesis-minor в `reports/wal-checkpoint-note/result.md` @owner:github:andrei-shtanakov @trigger:"следующий цикл авторинга по этому отчёту"
 
   Оба minor'а зафиксированы навсегда в `verdicts/wal-checkpoint-note/a5373eff-.../attempt-003.json`
   (`findings[0..1]`, оба `criterion_id: synthesis`): компаундный вывод в абзаце «Those two
@@ -90,7 +92,7 @@
   блокируют. В PR #11 не правились сознательно: правка байтов десинхронизировала бы
   `artifact_sha256`. Copilot независимо нашёл ровно те же два абзаца.
 
-- [ ] Решить судьбу ветки `research/injection-note-report` @owner:andrei
+- [ ] Решить судьбу ветки `research/injection-note-report` @owner:github:andrei-shtanakov
 
   Остаток golden run 4 (терминальный NEEDS_REVIEW): `reports/injection-note/result.md`,
   +16 строк, в worktree `/tmp/maestro-ws/research-bench/injection-note-report`, никогда не
@@ -101,7 +103,7 @@
 
 ### Доказательная база Stage B
 
-- [ ] Внести в матрицу закрытий сходимость Copilot ↔ машинный критик @owner:andrei
+- [ ] Внести в матрицу закрытий сходимость Copilot ↔ машинный критик @owner:github:andrei-shtanakov
 
   Трижды подряд (PR #9, #10, #11) внешний ревьюер независимо от машинного критика указал
   на те же самые места артефакта. В `docs/stage-b-closure-matrix.md` этого нет: слово
@@ -110,7 +112,7 @@
   отдельная строка в «Verdict». Это независимая калибровка критика, и сейчас она
   держится только в тредах смерженных PR.
 
-- [ ] Вклад в правило реконсиляции баз (friction 9, Stage C) @owner:andrei @blocked_by:maestro#base-pin-at-branch-creation
+- [ ] Вклад в правило реконсиляции баз (friction 9, Stage C) @owner:github:andrei-shtanakov @blocked_by:maestro#base-pin-at-branch-creation
 
   Матрица зафиксировала наблюдение: если база двигается посреди прогона, локальный и
   GitHub-ные merge-коммиты расходятся при идентичных деревьях, и `ff-reconcile` не
