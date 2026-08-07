@@ -11,8 +11,8 @@
 - **Закрытия Stage B:** `docs/stage-b-closure-matrix.md` — 13 frictions Stage A с
   evidence и остаточными рисками. Читать перед тем, как заводить «новую» проблему:
   скорее всего она там уже названа и у неё есть владелец.
-- **Входящие кросс-репные находки:** handoff-ноты в `../_cowork_output/` (dev-only).
-  Актуальная: `2026-07-26-robin-mirror-list-drift-handoff.md` (дрейф списка зеркал).
+- **Входящая кросс-репная находка:** handoff-нота в `../_cowork_output/` (dev-only):
+  `2026-07-26-robin-mirror-list-drift-handoff.md` (дрейф списка зеркал).
   Что из них взято в работу — в `./TODO.md`; нота не источник истины.
 
 ## `_cowork_output/` — только для разработки (dev-only)
