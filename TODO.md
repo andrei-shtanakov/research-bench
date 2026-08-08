@@ -58,7 +58,7 @@
 
 ### Гейт верификации (bench-verify)
 
-- [ ] Агрегатный бюджет link-resolve: streaming GET + per-stage budget @owner:github:andrei-shtanakov @trigger:"этап link-resolve вышел за 5 мин на реальном прогоне ИЛИ отчёт с >20 ссылками"
+- [ ] Агрегатный бюджет link-resolve: streaming GET + per-stage budget @owner:github:andrei-shtanakov @trigger:"этап link-resolve вышел за 5 мин на реальном прогоне ИЛИ отчёт с >20 ссылками" @id:link-resolve-stage-budget
 
   Friction 12 матрицы закрыт **частично**. Maestro-уровень сделан (`timeout_seconds`
   верификатора через execution layer, тест в `test_command_verifier`), а внутри
@@ -66,14 +66,14 @@
   суммарную стоимость этапа ничто не ограничивает. Нужны потоковый GET (не читать тело
   целиком) и бюджет на этап, а не только на запрос.
 
-- [ ] Golden run 2: доказать verifier-only рубрику живым прогоном @owner:github:andrei-shtanakov @blocked_by:operator-host#docker-runtime @trigger:"на хосте оператора появился рабочий docker"
+- [ ] Golden run 2: доказать verifier-only рубрику живым прогоном @owner:github:andrei-shtanakov @trigger:"на хосте оператора появился рабочий docker" @id:golden-run-2-verifier-only
 
   Friction 7 — единственный из 13, где механизм сдан, а live-доказательства нет.
   Проверяется: location-based `verifier_only` + capability-gate, и что детерминированный
   addendum отдаёт автору **только** `severity` + `author_feedback`, никогда
   `criterion_id`/`evidence`/хеши. Тесты на исключения есть; не хватает прогона.
 
-- [ ] Добавить `pyrefly check` в CI @owner:github:andrei-shtanakov
+- [ ] Добавить `pyrefly check` в CI @owner:github:andrei-shtanakov @id:ci-pyrefly-check
 
   Pyrefly настроен (`[tool.pyrefly]` в `pyproject.toml`, в dev-зависимостях) и на
   2026-07-26 чист — 0 errors, 9 suppressed. Но `.github/workflows/ci.yml` гоняет только
@@ -84,7 +84,7 @@
 
 ### Отчёты и авторинг
 
-- [ ] Полировка двух synthesis-minor в `reports/wal-checkpoint-note/result.md` @owner:github:andrei-shtanakov @trigger:"следующий цикл авторинга по этому отчёту"
+- [ ] Полировка двух synthesis-minor в `reports/wal-checkpoint-note/result.md` @owner:github:andrei-shtanakov @trigger:"следующий цикл авторинга по этому отчёту" @id:wal-checkpoint-synthesis-polish
 
   Оба minor'а зафиксированы навсегда в `verdicts/wal-checkpoint-note/a5373eff-.../attempt-003.json`
   (`findings[0..1]`, оба `criterion_id: synthesis`): компаундный вывод в абзаце «Those two
@@ -93,7 +93,7 @@
   блокируют. В PR #11 не правились сознательно: правка байтов десинхронизировала бы
   `artifact_sha256`. Copilot независимо нашёл ровно те же два абзаца.
 
-- [ ] Решить судьбу ветки `research/injection-note-report` @owner:github:andrei-shtanakov
+- [ ] Решить судьбу ветки `research/injection-note-report` @owner:github:andrei-shtanakov @id:injection-note-branch-decision
 
   Остаток golden run 4 (терминальный NEEDS_REVIEW): `reports/injection-note/result.md`,
   +16 строк, в worktree `/tmp/maestro-ws/research-bench/injection-note-report`, никогда не
@@ -104,7 +104,7 @@
 
 ### Доказательная база Stage B
 
-- [ ] Внести в матрицу закрытий сходимость Copilot ↔ машинный критик @owner:github:andrei-shtanakov
+- [ ] Внести в матрицу закрытий сходимость Copilot ↔ машинный критик @owner:github:andrei-shtanakov @id:critic-copilot-convergence-evidence
 
   Трижды подряд (PR #9, #10, #11) внешний ревьюер независимо от машинного критика указал
   на те же самые места артефакта. В `docs/stage-b-closure-matrix.md` этого нет: слово
@@ -113,13 +113,15 @@
   отдельная строка в «Verdict». Это независимая калибровка критика, и сейчас она
   держится только в тредах смерженных PR.
 
-- [ ] Вклад в правило реконсиляции баз (friction 9, Stage C) @owner:github:andrei-shtanakov @blocked_by:maestro#base-pin-at-branch-creation
+- [ ] Вклад в правило реконсиляции баз (friction 9, Stage C) @owner:github:andrei-shtanakov @id:base-reconciliation-rule-input
 
   Матрица зафиксировала наблюдение: если база двигается посреди прогона, локальный и
   GitHub-ные merge-коммиты расходятся при идентичных деревьях, и `ff-reconcile` не
   проходит. 2026-07-26 это воспроизвелось второй раз при чистке веток (см. чекбокс про
   `injection-note-report`). От research-bench нужен воспроизводимый рецепт, от Maestro —
-  пин базы диффа на момент создания ветки.
+  пин базы диффа на момент создания ветки. Прежний blocker снят: принятого Maestro
+  TODO/issue нет, а локальный evidence-рецепт уже можно подготовить; после него запрос
+  на Maestro-сторону должен войти через repo-inbox.
 
 ---
 
