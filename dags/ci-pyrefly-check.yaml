@@ -1,0 +1,32 @@
+# Launchpad DAG for @id:ci-pyrefly-check — pyrefly check добавляется в CI-джоб
+repo_url: git@github.com:andrei-shtanakov/research-bench.git
+tasks:
+  - id: add-pyrefly-ci
+    prompt: |
+      Repository: research-bench (Python, uv-managed). Task from TODO.md
+      item @id:ci-pyrefly-check: add `pyrefly check` to CI.
+
+      Context: pyrefly is already a dev dependency (pyproject.toml has
+      pyrefly>=0.16 and a [tool.pyrefly] section) and passes locally with
+      0 errors. The CI workflow .github/workflows/ci.yml has a single
+      `test` job whose steps run: uv sync, ruff format --check, ruff
+      check, pytest -m "not slow".
+
+      Do exactly this:
+      1. In .github/workflows/ci.yml, add the step
+         `- run: uv run pyrefly check` immediately after the
+         `uv run ruff check .` step (same job, same style — no new job,
+         no matrix changes).
+      2. Verify locally that the command the step will run is green:
+         run `uv run pyrefly check` from the repo root; it must exit 0.
+         Also run `uv run ruff format --check .` and `uv run ruff check .`
+         to confirm you left formatting untouched.
+      3. In TODO.md, close the item: change its checkbox from `- [ ]` to
+         `- [x]` on the line carrying @id:ci-pyrefly-check, appending the
+         PR number placeholder is NOT needed — leave the line text
+         otherwise untouched (tags stay on the line).
+      4. Commit both files with message
+         "ci: add pyrefly check to the test job".
+
+      Constraints: touch ONLY .github/workflows/ci.yml and TODO.md; do not
+      reformat unrelated lines; follow the repo's existing YAML style.
