@@ -73,7 +73,7 @@
   addendum отдаёт автору **только** `severity` + `author_feedback`, никогда
   `criterion_id`/`evidence`/хеши. Тесты на исключения есть; не хватает прогона.
 
-- [ ] Добавить `pyrefly check` в CI @owner:github:andrei-shtanakov @id:ci-pyrefly-check @epic:eco.research-bench @dag:dags/ci-pyrefly-check.yaml
+- [x] Добавить `pyrefly check` в CI @owner:github:andrei-shtanakov @id:ci-pyrefly-check @epic:eco.research-bench @dag:dags/ci-pyrefly-check.yaml
 
   Pyrefly настроен (`[tool.pyrefly]` в `pyproject.toml`, в dev-зависимостях) и на
   2026-07-26 чист — 0 errors, 9 suppressed. Но `.github/workflows/ci.yml` гоняет только
