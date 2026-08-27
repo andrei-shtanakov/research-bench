@@ -1,7 +1,9 @@
 # Launchpad DAG for @id:ci-pyrefly-check — pyrefly check добавляется в CI-джоб
-repo_url: git@github.com:andrei-shtanakov/research-bench.git
+project: research-bench
+repo: /Users/Andrei_Shtanakov/labs/all_ai_orchestrators/research-bench
 tasks:
   - id: add-pyrefly-ci
+    title: Add pyrefly check to the CI test job
     prompt: |
       Repository: research-bench (Python, uv-managed). Task from TODO.md
       item @id:ci-pyrefly-check: add `pyrefly check` to CI.
@@ -22,11 +24,11 @@ tasks:
          Also run `uv run ruff format --check .` and `uv run ruff check .`
          to confirm you left formatting untouched.
       3. In TODO.md, close the item: change its checkbox from `- [ ]` to
-         `- [x]` on the line carrying @id:ci-pyrefly-check, appending the
-         PR number placeholder is NOT needed — leave the line text
-         otherwise untouched (tags stay on the line).
+         `- [x]` on the line carrying @id:ci-pyrefly-check — leave the
+         line text otherwise untouched (tags stay on the line).
       4. Commit both files with message
          "ci: add pyrefly check to the test job".
 
       Constraints: touch ONLY .github/workflows/ci.yml and TODO.md; do not
       reformat unrelated lines; follow the repo's existing YAML style.
+    validation_cmd: uv run pyrefly check
